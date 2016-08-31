@@ -161,15 +161,23 @@ export default function oauth({
   }
 
   function renderSync(req, res) {
-    const { ship = {} } = req.hull;
+    const { ship = {}, client } = req.hull;
     const { mailchimp_list_name } = ship.private_settings || {};
-    const viewData = {
-      name,
-      select_url: `https://${req.hostname}${req.baseUrl}${selectUrl}?hullToken=${req.hull.hullToken}`,
-      form_action: `https://${req.hostname}${req.baseUrl}${syncUrl}?hullToken=${req.hull.hullToken}`,
-      mailchimp_list_name
-    };
-    return res.render("sync.html", viewData);
+    const agent = new MailchimpAgent(ship, client, req, MailchimpClient);
+
+    agent.getAudiencesBySegmentId()
+    .then(data => {
+      const viewData = {
+        _,
+        data: _.sortBy(data, ({ segment }) => (segment.name || "").toLowerCase()),
+        name,
+        select_url: `https://${req.hostname}${req.baseUrl}${selectUrl}?hullToken=${req.hull.hullToken}`,
+        form_action: `https://${req.hostname}${req.baseUrl}${syncUrl}?hullToken=${req.hull.hullToken}`,
+        mailchimp_list_name
+      };
+      return res.render("sync.html", viewData);
+    })
+    .catch(mailchimpErrorHandler.bind(this, res, req, ship, client));
   }
 
   /**
@@ -181,20 +189,38 @@ export default function oauth({
     const { ship, client } = req.hull || {};
     const agent = new MailchimpAgent(ship, client, req, MailchimpClient);
 
-    client.logger.info("Start sync all operation");
-    res.end("ok");
-    agent.removeAudiences()
-    .then(agent.handleShipUpdate.bind(agent, false, true))
-    .then(agent.fetchSyncHullSegments.bind(agent))
-    .then(segments => {
-      client.logger.info("Request the extract for segments", segments.length);
-      if (segments.length === 0) {
-        return agent.requestExtract({});
-      }
-      return Promise.map(segments, segment => {
-        return agent.requestExtract({ segment });
+    const { segmentId, segmentName } = (req.body || {});
+
+    // const response =  _.pick(req, "body", "query");
+
+    // console.warn("Hello params", response);
+
+    // return res.json(response);
+
+    if (segmentId && segmentName) {
+      client.get(segmentId).then(
+        segment => {
+          console.warn("Here is my segment: ", segment);
+          agent.requestExtract({ segment });
+          res.json({ segment });
+        }
+      , err => res.json({ error: err }));
+    } else {
+      client.logger.info("Start sync all operation");
+      return res.end("ok");
+      agent.removeAudiences()
+      .then(agent.handleShipUpdate.bind(agent, false, true))
+      .then(agent.fetchSyncHullSegments.bind(agent))
+      .then(segments => {
+        client.logger.info("Request the extract for segments", segments.length);
+        if (segments.length === 0) {
+          return agent.requestExtract({});
+        }
+        return Promise.map(segments, segment => {
+          return agent.requestExtract({ segment });
+        });
       });
-    });
+    }
   }
 
   const router = Router();
@@ -206,7 +232,7 @@ export default function oauth({
   router.get(syncUrl, renderSync);
 
   router.post(selectUrl, bodyParser.urlencoded({ extended: true }), handleSelect);
-  router.post(syncUrl, handleSync);
+  router.post(syncUrl, bodyParser.urlencoded({ extended: true }), handleSync);
 
   return router;
 }

@@ -35,20 +35,72 @@ Choose one or more Filtered Segments on the sidebar to limit synced users to a s
       </div>
     </div>
   </div>
+  <div class="row">
+    <div class="col-md-6 col-md-offset-3 col-sm-offset-2 col-sm-8 col-xs-offset-1 col-xs-10 mt-2 panel">
+      <div class="panel-body">
+        <div class="mb-1">
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Hull users count</th>
+                <th>Segment members count</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <% _.map(data, ({ segment, audience }) => { %>
+                <tr>
+                  <td><%= segment.name %></td>
+                  <td><%= segment.stats.users %></td>
+                  <td><%= audience.member_count %></td>
+                  <td>
+                    <button class='mb-1 btn btn-block btn-primary'
+                      data-segment-id="<%= segment.id %>"
+                      data-segment-name="<%= segment.name %>"
+                      data-action="<%=form_action%>"
+                      data-confirm="<%=mailchimp_list_name%>">Sync</button>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <style type="text/css" media="screen">
   </style>
   <script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
   <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/sweetalert/1.1.3/sweetalert.min.js"></script>
   <script>
     $(function() {
-
       $("[data-confirm]").click(function() {
         var listName = $(this).attr('data-confirm');
         var actionUrl = $(this).attr('data-action');
+        var segmentId = $(this).attr('data-segment-id');
+        var segmentName = $(this).attr('data-segment-name');
+
+
+        var title = "Sync all users and segments";
+        var text = "You are going to resync Mailchimp with Hull. This will empty the list you picked ("
+          + listName
+          + "). This can generate a lot of traffic. Are you sure?";
+        var successMessage = "The Mailchimp list (" + listName + ") will be synced shortly.";
+
+
+        if (segmentId && segmentName) {
+          params = { segmentId: segmentId, segmentName: segmentName };
+          title = "Sync users segment " + segmentName;
+          text = "You are going to resync the segment called \"" + segmentName + "\" with Hull. This can generate a lot of traffic. Are you sure?";
+          successMessage = "The segment \"" + segmentName + "\" will be synced shortly with your Mailchimp list";
+        }
+
         swal({
-          title: "Sync all users and segments",
-          text: "You are going to resync Mailchimp with Hull. This will empty the list you picked ("
-            + listName + "). This can generate a lot of traffic. Are you sure?",
+          title: title,
+          text: text,
           type: "warning",
           showCancelButton: true,
           confirmButtonColor: "#DD6B55",
@@ -56,9 +108,8 @@ Choose one or more Filtered Segments on the sidebar to limit synced users to a s
           closeOnConfirm: false
         }, function(isConfirm) {
           if (isConfirm) {
-            $.post(actionUrl);
-            swal("Sync started", "The Mailchimp list ("
-            + listName + ") will be synced shortly.", "success");
+            $.post(actionUrl, params);
+            swal("Sync started", successMessage, "success");
           }
         });
       });
