@@ -2,8 +2,9 @@ import Promise from "bluebird";
 import _ from "lodash";
 import crypto from "crypto";
 import SyncAgent from "./sync-agent";
+import EventsAgent from "./events-agent";
 
-const batchQueueChecks = {};
+const eventsAgents = {};
 
 const MC_KEYS = [
   "stats.avg_open_rate",
@@ -40,8 +41,7 @@ export default class MailchimpList extends SyncAgent {
         return Promise.reject(error);
       }
       try {
-        handler[method](message);
-        return Promise.resolve("ok");
+        return handler[method](message);
       } catch (err) {
         const error = new Error(`Unhandled error: ${err.message}`);
         error.status = 500;
@@ -74,7 +74,8 @@ export default class MailchimpList extends SyncAgent {
     return [
       "api_key",
       "domain",
-      "mailchimp_list_id"
+      "mailchimp_list_id",
+      "mailchimp_list_name"
     ];
   }
 
@@ -273,6 +274,7 @@ export default class MailchimpList extends SyncAgent {
       errors.map((e) => this.hull.logger.info("addUsersToAudiences.responseError", { error: e.toString(), message: e.message }));
       return Promise.all(uniqSuccess.map((mc) => {
         this.hull.logger.info("addUsersToAudiences.updateUser", mc.email_address);
+        const email = mc.email_address && mc.email_address.toLowerCase();
         const user = _.find(usersSubscribed, { email: mc.email_address });
         if (user) {
           // Update user's mailchimp/* traits
@@ -364,7 +366,7 @@ export default class MailchimpList extends SyncAgent {
       const key = _.last(path.split("."));
       const value = _.get(mailchimpUser, path);
       const prev = user[`traits_mailchimp/${key}`];
-      if (!_.isEmpty(value) && value !== prev) {
+      if (!_.isEmpty(value)/* && value !== prev*/) {
         t[key] = value;
       }
       return t;
@@ -382,10 +384,6 @@ export default class MailchimpList extends SyncAgent {
   getClient() {
     if (!this._client) {
       this._client = new this.MailchimpClientClass(this.getCredentials());
-
-      if (!batchQueueChecks[this._client.api_key]) {
-        batchQueueChecks[this._client.api_key] = setInterval(this.checkBatchQueue.bind(this), process.env.CHECK_BATCH_QUEUE || 30000);
-      }
     }
     return this._client;
   }
@@ -413,5 +411,56 @@ export default class MailchimpList extends SyncAgent {
       ({ segments }) => segments,
       (err) => this.hull.logger.info("Error in fetchAudiences", err)
     );
+  }
+
+  /**
+   * Returns a cached instance of EventsAgent and also sets the scheduler
+   * for periodic check for new events
+   * @return {Object} instance of EventsAgent
+   */
+  getEventsAgent() {
+    const client = this.getClient();
+    if (!eventsAgents[client.api_key]) {
+      eventsAgents[client.api_key] = new EventsAgent(client, this.hull, this.getCredentials());
+    }
+    return eventsAgents[client.api_key];
+  }
+
+  /**
+   * It runs the EventsAgent.runCampaignStrategy with a callback which calls
+   * an extract to get information for members to track Mailchimp activity on them.
+   * The query which is passed to the callback will select only user which
+   * latest tracked activity is older than activity from Mailchimp
+   *
+   * @return {Promise}
+   */
+  handleRequestTrackExtract() {
+    const eventsAgent = this.getEventsAgent();
+    return eventsAgent.runCampaignStrategy(query => {
+      const segment = {
+        query
+      };
+      const path = "/track";
+      const format = "csv";
+      const fields = [
+        "id",
+        "email",
+        "traits_mailchimp/latest_activity_at",
+        "traits_mailchimp/unique_email_id"
+      ];
+      this.hull.logger.info("Request track extract");
+      return this.requestExtract({ segment, path, format, fields })
+        .catch(err => console.error(err));
+    });
+  }
+
+  handleUserUpdate({ user, changes = {}, segments = [] }) {
+    super.handleUserUpdate({ user, changes, segments });
+
+    // exclude updates related to mailchimp events send to avoid possible loop
+    if (this.shouldSyncUser(user)
+      && _.isEmpty(_.get(changes, "user['traits_mailchimp/latest_activity_at'][1]"))) {
+      this.getEventsAgent().runUserStrategy([user]);
+    }
   }
 }

@@ -30,20 +30,22 @@ export default class MailchimpClient {
    * @param  {Array} ops
    * @return {Promise}
    */
-  batch(ops) {
+  batch(ops, options = {}) {
     if (_.isEmpty(ops)) {
       return Promise.resolve([]);
     }
 
+    _.defaults(options, { verbose: false, forceBatch: false });
+
     // microbatch - when the batch consists of only 1 operation,
     // let's do it in a traditional query
-    if (ops.length < 30) {
+    if (!options.forceBatch && ops.length < 30) {
       return Promise.all(ops.map(op => this.request(op).catch(err => err)));
     }
     ops = ops.map(this.replacePath.bind(this));
 
     return limiter.key(this.api_key)
-      .schedule(this.client.batch.bind(this.client), ops, { verbose: false });
+      .schedule(this.client.batch.bind(this.client), ops, options);
   }
 
   /**

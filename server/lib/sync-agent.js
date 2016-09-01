@@ -303,18 +303,20 @@ export default class SegmentSyncAgent {
    * @param  {String} format - csv or json
    * @return {Promise}
    */
-  requestExtract({ segment = null, format = "json" }) {
+  requestExtract({ segment = null, format = "json", path = "batch", fields = [] }) {
     const { hostname } = this.req;
     const search = (this.req.query || {});
     if (segment) {
       search.segment_id = segment.id;
     }
     const url = URI(`https://${hostname}`)
-      .path("batch")
+      .path(path)
       .search(search)
       .toString();
 
-    const fields = this._getExtractFields();
+    if (_.isEmpty(fields)) {
+      fields = this._getExtractFields();
+    }
 
     return (() => {
       if (segment == null) {
@@ -365,7 +367,7 @@ export default class SegmentSyncAgent {
     if (!url) return Promise.reject(new Error("Missing URL"));
     const decoder = format === "csv" ? CSVStream.createStream({ escapeChar: "\"", enclosedChar: "\"" }) : JSONStream.parse();
 
-    const batch = new BatchStream({ size: 500 });
+    const batch = new BatchStream({ size: 100 });
 
     return request({ url })
       .pipe(decoder)

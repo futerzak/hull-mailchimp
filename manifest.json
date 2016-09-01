@@ -62,5 +62,17 @@
     {
       "url": "/notify"
     }
-  ]
+  ],
+  "schedules": [
+    {
+      "url": "/requestTrack",
+      "type": "cron",
+      "value": "0 * * * *"
+    },
+    {
+      "url": "/checkBatchQueue",
+      "type": "cron",
+      "value": "* * * * *"
+    }
+ ]
 }
