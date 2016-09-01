@@ -455,6 +455,12 @@ export default class MailchimpList extends SyncAgent {
   }
 
   handleUserUpdate({ user, changes = {}, segments = [] }) {
+    // exclude users being recently synced from mailchimp
+    if (!_.isEmpty(_.get(changes, "user['traits_mailchimp/unique_email_id'][1]"))) {
+      this.hull.logger.info("handleUserUpdate.skippingUser", _.get(changes, "user['traits_mailchimp/unique_email_id'][1]"));
+      return null;
+    }
+
     super.handleUserUpdate({ user, changes, segments });
 
     // exclude updates related to mailchimp events send to avoid possible loop
