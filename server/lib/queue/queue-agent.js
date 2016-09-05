@@ -11,8 +11,23 @@ export default class QueueAgent {
    * Adapter on top of the queue system.
    * Should expose create and process methods;
    */
-  constructor(adapter) {
+  constructor(adapter, req = null) {
     this.adapter = adapter;
+    this.req = req;
+  }
+
+  /**
+   * @param {String} jobName
+   * @param {Object} jobPayload
+   * @return {Promise}
+   */
+  create(jobName, jobPayload, req = {} , options = {}) {
+    const context = _.pick(this.req || req, ["query"]);
+    return this.adapter.create("queueApp", {
+      name: jobName,
+      payload: jobPayload,
+      context
+    }, null, options);
   }
 
   /**

@@ -24,13 +24,16 @@ export default class KueAdapter {
    * @param {Object} jobPayload
    * @return {Promise}
    */
-  create(jobName, jobPayload, ttl = 0) {
+  create(jobName, jobPayload, ttl = 0, { delay = null }) {
     return Promise.fromCallback((callback) => {
-      return this.queue.create(jobName, jobPayload)
+      const job = this.queue.create(jobName, jobPayload)
         .ttl(ttl)
         .attempts(3)
-        .removeOnComplete(true)
-        .save(callback);
+        .removeOnComplete(true);
+      if (delay) {
+        job.delay(delay)
+      }
+      return job.save(callback);
     });
   }
 

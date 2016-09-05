@@ -3,6 +3,7 @@ import _ from "lodash";
 import crypto from "crypto";
 import SyncAgent from "./sync-agent";
 import EventsAgent from "./events-agent";
+import MailchimpClientRequest from "./mailchimp-client-request";
 
 const eventsAgents = {};
 
@@ -28,6 +29,7 @@ export default class MailchimpList extends SyncAgent {
   constructor(ship, hull, req, MailchimpClientClass) {
     super(ship, hull, req);
     this.MailchimpClientClass = MailchimpClientClass;
+    this.mailchimpClientRequest = new MailchimpClientRequest(this.getCredentials());
   }
 
   static handle(method, MailchimpClientClass) {
@@ -227,6 +229,7 @@ export default class MailchimpList extends SyncAgent {
       }, { concurrency: 3 });
   }
 
+
   /**
    * Ensures that all provided users are subscribed to Mailchimp,
    * then adds them to selected audience and updates Hull traits.
@@ -234,10 +237,29 @@ export default class MailchimpList extends SyncAgent {
    * @param {Array} segmentIds. list of segment to add the users to
    * @return {Promise}
    */
-
   addUsersToAudiences(users = [], segment_id) {
     const usersToAdd = users.filter(u => !_.isEmpty(u.email) && !_.isEmpty(u.first_name) && !_.isEmpty(u.last_name));
     this.hull.logger.info("addUsersToAudiences.usersToAdd", { usersToAdd: usersToAdd.length, users: users.length, segment_id });
+
+    return this.getAudiencesBySegmentId()
+      .then(audiences => {
+        const usersToSubscribe = this.usersAgent.getUsersToSubscribe(users);
+        const usersToSave = this.usersAgent.getUsersToSave(users);
+
+        const opsToSubscribe = this.membersAgent.subscribeMembers(usersToSubscribe, "saveMembers");
+        const opsToSave = this.membersAgent.saveMembers(usersToSave, audiences);
+
+        ops = _.concat(opsToSave, opsToSave);
+
+        return this.mailchimpClientRequest
+          .post("/batches")
+          .send(ops);
+      });
+
+
+
+
+
     return Promise.all([
       this.ensureUsersSubscribed(usersToAdd),
       this.getAudiencesBySegmentId()
@@ -316,7 +338,7 @@ export default class MailchimpList extends SyncAgent {
     const batch = usersToSubscribe
       .map(user => {
         return {
-          method: "post",
+          method: "put",
           path: "/lists/{list_id}/members",
           body: {
             email_type: "html",
@@ -455,12 +477,6 @@ export default class MailchimpList extends SyncAgent {
   }
 
   handleUserUpdate({ user, changes = {}, segments = [] }) {
-    // exclude users being recently synced from mailchimp
-    if (!_.isEmpty(_.get(changes, "user['traits_mailchimp/unique_email_id'][1]"))) {
-      this.hull.logger.info("handleUserUpdate.skippingUser", _.get(changes, "user['traits_mailchimp/unique_email_id'][1]"));
-      return null;
-    }
-
     super.handleUserUpdate({ user, changes, segments });
 
     // exclude updates related to mailchimp events send to avoid possible loop

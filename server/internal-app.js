@@ -34,13 +34,13 @@ export default function Server({ hostSecret, queueAgent }) {
     client.logger.info("request.batch.start", req.body);
 
     return agent.handleExtract(req.body, users => {
-      const queueReq = _.cloneDeep(req);
-      queueReq.url = queueReq.url.replace("batch", "batchChunk");
-      queueReq.body = {
-        users
-      };
+      // const queueReq = _.cloneDeep(req);
+      // queueReq.url = queueReq.url.replace("batch", "batchChunk");
+      // queueReq.body = {
+      //   users
+      // };
 
-      return queueAgent.queueRequest(queueReq);
+      return queueAgent.create("handleBatchJob", { users }, req);
     }).then(() => {
       client.logger.info("request.batch.end");
       res.end("ok");
