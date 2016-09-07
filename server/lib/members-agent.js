@@ -26,13 +26,13 @@ export default class MembersAgent {
       });
       return {
         operation_id,
-        method: "put",
+        method: "PUT",
         path: `/lists/${this.listId}/members/${hash}`,
         body: JSON.stringify({
           email_type: "html",
           merge_fields: {
-            FNAME: user.first_name,
-            LNAME: user.last_name
+            FNAME: user.first_name || "",
+            LNAME: user.last_name || ""
           },
           email_address: user.email,
           status_if_new: "subscribed"
@@ -48,6 +48,7 @@ export default class MembersAgent {
     return users.reduce((ops, user) => {
       const segment_ids = _.compact(_.uniq((user.segment_ids || []).concat(segmentIds)));
       const segments = _.pick(audiences, segment_ids);
+      console.log("WWWW", segments, user, audiences);
       _.each(segments, ({ audience }) => {
         if (audience) {
           const operation_id = JSON.stringify({
@@ -56,8 +57,8 @@ export default class MembersAgent {
           ops.push({
             operation_id,
             body: JSON.stringify({ email_address: user.email, status: "subscribed" }),
-            method: "post",
-            path: `/lists/${this.listId}/segments/${audience.id}/members`
+            method: "POST",
+            path: `lists/${this.listId}/segments/${audience.id}/members`
           });
         }
       });

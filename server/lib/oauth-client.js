@@ -3,13 +3,15 @@ import { Router } from "express";
 import bodyParser from "body-parser";
 import oauth2Factory from "simple-oauth2";
 import rp from "request-promise";
+import Hull from "hull";
+import TokenMiddleware from "../lib/middlewares/token";
 
-import fetchShip from "./middlewares/fetch-ship";
+// import fetchShip from "./middlewares/fetch-ship";
 
 export default function oauth({
   name, clientID, clientSecret,
   callbackUrl, homeUrl, selectUrl, syncUrl,
-  site, tokenPath, authorizationPath
+  site, tokenPath, authorizationPath, hostSecret
   }) {
   const oauth2 = oauth2Factory({
     name, clientID, clientSecret,
@@ -32,7 +34,7 @@ export default function oauth({
       hull.put(ship.id, {
         private_settings: { ...ship.private_settings, api_key: null, mailchimp_list_id: null }
       }).then(() => {
-        return res.redirect(`${req.baseUrl}${homeUrl}?hullToken=${req.hull.hullToken}`);
+        return res.redirect(`${req.baseUrl}${homeUrl}?hullToken=${req.hull.token}`);
       });
     } else {
       // TODO add an error page template to display uncaught errors
@@ -43,7 +45,7 @@ export default function oauth({
   function renderHome(req, res) {
     const { ship = {}, } = req.hull;
     const { api_key: apiKey, mailchimp_list_id: mailchimpListId, api_endpoint: apiEndpoint } = ship.private_settings || {};
-    const redirect_uri = `https://${req.hostname}${req.baseUrl}${callbackUrl}?hullToken=${req.hull.hullToken}`;
+    const redirect_uri = `https://${req.hostname}${req.baseUrl}${callbackUrl}?hullToken=${req.hull.token}`;
     const viewData = {
       name,
       url: oauth2.authCode.authorizeURL({ redirect_uri })
@@ -53,17 +55,17 @@ export default function oauth({
     }
 
     if (!mailchimpListId) {
-      return res.redirect(`${req.baseUrl}${selectUrl}?hullToken=${req.hull.hullToken}`);
+      return res.redirect(`${req.baseUrl}${selectUrl}?hullToken=${req.hull.token}`);
     }
 
-    return res.redirect(`${req.baseUrl}${syncUrl}?hullToken=${req.hull.hullToken}`);
+    return res.redirect(`${req.baseUrl}${syncUrl}?hullToken=${req.hull.token}`);
   }
 
   function renderRedirect(req, res) {
     const { ship = {}, client: hull } = req.hull;
 
     const code = req.query.code;
-    const redirect_uri = `https://${req.hostname}${req.baseUrl}${callbackUrl}?hullToken=${req.hull.hullToken}`;
+    const redirect_uri = `https://${req.hostname}${req.baseUrl}${callbackUrl}?hullToken=${req.hull.token}`;
     const form = {
       grant_type: "authorization_code",
       client_id: clientID,
@@ -117,7 +119,7 @@ export default function oauth({
     const { api_key: apiKey, mailchimp_list_id, api_endpoint } = ship.private_settings || {};
     const viewData = {
       name,
-      form_action: `https://${req.hostname}${req.baseUrl}${selectUrl}?hullToken=${req.hull.hullToken}`,
+      form_action: `https://${req.hostname}${req.baseUrl}${selectUrl}?hullToken=${req.hull.token}`,
       mailchimp_list_id
     };
     rp({
@@ -152,7 +154,7 @@ export default function oauth({
       return hull.put(ship.id, {
         private_settings: { ...ship.private_settings, mailchimp_list_id: data.id, mailchimp_list_name: data.name }
       }).then(() => {
-        return res.redirect(`${req.baseUrl}${syncUrl}?hullToken=${req.hull.hullToken}`);
+        return res.redirect(`${req.baseUrl}${syncUrl}?hullToken=${req.hull.token}`);
       });
     }, mailchimpErrorHandler.bind(this, res, req, ship, hull));
   }
@@ -162,8 +164,8 @@ export default function oauth({
     const { mailchimp_list_name } = ship.private_settings || {};
     const viewData = {
       name,
-      select_url: `https://${req.hostname}${req.baseUrl}${selectUrl}?hullToken=${req.hull.hullToken}`,
-      form_action: `https://${req.hostname}/sync?hullToken=${req.hull.hullToken}`,
+      select_url: `https://${req.hostname}${req.baseUrl}${selectUrl}?hullToken=${req.hull.token}`,
+      form_action: `https://${req.hostname}/sync?hullToken=${req.hull.token}`,
       mailchimp_list_name
     };
     return res.render("sync.html", viewData);
@@ -171,7 +173,8 @@ export default function oauth({
 
   const router = Router();
   router.use(bodyParser.json());
-  router.use(fetchShip);
+  router.use(TokenMiddleware);
+  router.use(Hull.Middleware({ hostSecret }));
   router.get(homeUrl, renderHome);
   router.get(callbackUrl, renderRedirect);
   router.get(selectUrl, renderSelect);

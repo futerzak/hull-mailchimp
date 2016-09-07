@@ -212,18 +212,18 @@ export default class SegmentSyncAgent {
    * @param  {Array} segments - The list of segment the user belongs to
    * @return {undefined}
    */
-  handleUserUpdate({ user, changes = {}, segments = [] }) {
-    user.segment_ids = user.segment_ids || segments.map(s => s.id);
-    if (_.isEmpty(user["traits_mailchimp/unique_email_id"])) {
-      this.hull.logger.info("User has empty unique_email_id trait");
-      segments.map((segment) => this.handleUserEnteredSegment(user, segment));
-    } else {
-      const { entered = [], left = [] } = changes.segments || {};
-      this.hull.logger.info("User has unique_email_id trait", changes.segments);
-      entered.map((segment) => this.handleUserEnteredSegment(user, segment));
-      left.map((segment) => this.handleUserLeftSegment(user, segment));
-    }
-  }
+  // handleUserUpdate({ user, changes = {}, segments = [] }) {
+  //   user.segment_ids = user.segment_ids || segments.map(s => s.id);
+  //   if (_.isEmpty(user["traits_mailchimp/unique_email_id"])) {
+  //     this.hull.logger.info("User has empty unique_email_id trait");
+  //     segments.map((segment) => this.handleUserEnteredSegment(user, segment));
+  //   } else {
+  //     const { entered = [], left = [] } = changes.segments || {};
+  //     this.hull.logger.info("User has unique_email_id trait", changes.segments);
+  //     entered.map((segment) => this.handleUserEnteredSegment(user, segment));
+  //     left.map((segment) => this.handleUserLeftSegment(user, segment));
+  //   }
+  // }
 
   /**
    * The user just entered the segment
@@ -233,12 +233,12 @@ export default class SegmentSyncAgent {
    * @param  {Object} segment - A segment
    * @return {undefined}
    */
-  handleUserEnteredSegment(user, segment) {
-    return this.shouldSyncUser(user) &&
-      this.getOrCreateAudienceForSegment(segment).then(audience =>
-        audience && this.addUsersToAudiences([user])
-      );
-  }
+  // handleUserEnteredSegment(user, segment) {
+  //   return this.shouldSyncUser(user) &&
+  //     this.getOrCreateAudienceForSegment(segment).then(audience =>
+  //       audience && this.addUsersToAudiences([user])
+  //     );
+  // }
 
   /**
    * The user just left the segment.
@@ -248,14 +248,14 @@ export default class SegmentSyncAgent {
    * @param  {Object} segment - A segment
    * @return {Promise}
    */
-  handleUserLeftSegment(user, segment) {
-    return this.getOrCreateAudienceForSegment(segment).then(audience => {
-      if (this.shouldSyncUser(user)) {
-        return audience && this.removeUsersFromAudience(audience.id, [user]);
-      }
-      return this.removeUsersFromAudiences([user]);
-    });
-  }
+  // handleUserLeftSegment(user, segment) {
+  //   return this.getOrCreateAudienceForSegment(segment).then(audience => {
+  //     if (this.shouldSyncUser(user)) {
+  //       return audience && this.removeUsersFromAudience(audience.id, [user]);
+  //     }
+  //     return this.removeUsersFromAudiences([user]);
+  //   });
+  // }
 
   /**
    * Handler for `segment:update` notification.

@@ -4,6 +4,8 @@ import MailchimpAgent from "../mailchimp-agent";
 import UsersAgent from "../users-agent";
 import MembersAgent from "../members-agent";
 import QueueAgent from "../queue/queue-agent";
+import EventsAgent from "../events-agent";
+import BatchAgent from "../batch-agent";
 
 export default function (queueAdapter) {
   return function middleware(req, res, next) {
@@ -18,7 +20,9 @@ export default function (queueAdapter) {
     req.shipApp.mailchimpClientRequest = new MailchimpClientRequest(req.shipApp.mailchimpAgent.getCredentials());
 
     req.shipApp.membersAgent = new MembersAgent(req.shipApp.mailchimpAgent.getCredentials());
-    req.shipApp.usersAgent = new UsersAgent();
+    req.shipApp.usersAgent = new UsersAgent(req.shipApp.mailchimpAgent, req.hull.client);
+    req.shipApp.batchAgent = new BatchAgent(req.shipApp.mailchimpClientRequest, req.shipApp.queueAgent)
+    req.shipApp.eventsAgent = new EventsAgent(req.shipApp.mailchimpClientRequest, req.hull.client, req.shipApp.mailchimpAgent.getCredentials(), req.shipApp.queueAgent, req.shipApp.batchAgent);
 
     return next();
   };

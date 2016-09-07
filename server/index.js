@@ -5,7 +5,7 @@ import controllers from "./controller";
 
 import QueueRouter from "./router/queue-router";
 import QueueApp from "./app/queue-app";
-import internalApp from "./internal-app";
+// import internalApp from "./internal-app";
 import publicApp from "./public-app";
 
 export function Server({ hostSecret }) {
@@ -19,10 +19,10 @@ export function Server({ hostSecret }) {
     .use(QueueRouter(controllers))
     .process();
 
-  internalApp({
-    hostSecret,
-    queueAgent
-  });
+  // internalApp({
+  //   hostSecret,
+  //   queueAgent
+  // });
 
-  return publicApp({ queueAgent });
+  return publicApp({ queueAgent, hostSecret });
 }

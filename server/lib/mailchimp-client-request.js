@@ -49,6 +49,11 @@ export default class MailchimpClient {
     return this.attach(req);
   }
 
+  delete(url) {
+    const req = this.req.delete(url);
+    return this.attach(req);
+  }
+
   /**
    * Method to handle Mailchimp batch response as a JSON stream
    * @param  {String} { response_body_url }

@@ -21,43 +21,12 @@ export default class QueueAgent {
    * @param {Object} jobPayload
    * @return {Promise}
    */
-  create(jobName, jobPayload, req = {} , options = {}) {
-    const context = _.pick(this.req || req, ["query"]);
+  create(jobName, jobPayload, options = {}, req = {}) {
+    const context = _.pick(this.req || req, ["query", "hostname"]);
     return this.adapter.create("queueApp", {
       name: jobName,
       payload: jobPayload,
       context
-    }, null, options);
-  }
-
-  /**
-   * Queue process to the internal app
-   * @param {Object} req Request object
-   * @return {Promise}
-   */
-  queueRequest(req) {
-    const options = _.pick(req, ["method", "path", "query", "body", "hostname", "headers"]);
-    options.title = _.get(req, "path", "");
-    return this.adapter.create("http_requests", options, 180000);
-  }
-
-  /**
-   * @param {Object} app the http server application to run queued requests
-   */
-  processRequest(app) {
-    return this.adapter.process("http_requests", (job) => {
-      return Promise.fromCallback((callback) => {
-        let query = request(app);
-        query = query[job.data.method.toLowerCase()](job.data.path)
-          .query(job.data.query)
-          .set({ host: job.data.hostname });
-
-        if (job.data.method === "POST") {
-          query = query.send(job.data.body);
-        }
-
-        return query.end(callback);
-      });
-    });
+    }, options);
   }
 }

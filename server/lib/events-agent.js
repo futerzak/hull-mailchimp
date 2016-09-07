@@ -17,10 +17,12 @@ import es from "event-stream";
  */
 export default class EventsAgent {
 
-  constructor(mailchimpClient, hull, credentials) {
+  constructor(mailchimpClient, hull, credentials, queueAgent, batchAgent) {
     this.client = mailchimpClient;
     this.hull = hull;
     this.credentials = credentials;
+    this.queueAgent = queueAgent;
+    this.batchAgent = batchAgent;
   }
 
   /**
@@ -35,40 +37,10 @@ export default class EventsAgent {
    * @param  {Function} callback
    * @return {Promise}
    */
-  runCampaignStrategy(callback) {
+  runCampaignStrategy() {
     return this.getTrackableCampaigns()
       .then(campaigns => {
-        return this.getEmailActivities(campaigns, (chunk) => {
-          if (_.isEmpty(chunk)) {
-            return null;
-          }
-          const emailsToExtract = chunk.reduce((emails, e) => {
-            const timestamps = e.activity.sort((x, y) => moment(x.timestamp) - moment(y.timestamp));
-            const timestamp = _.get(_.last(timestamps), "timestamp", e.campaign_send_time);
-
-            // if there is already same email queued remove it if its older than
-            // actual or stop if it's not
-            const existingEmail = _.findIndex(emails, ["email_address", e.email_address]);
-            if (existingEmail !== -1) {
-              if (moment(emails[existingEmail].timestamp).isSameOrBefore(timestamp)) {
-                _.pullAt(emails, [existingEmail]);
-              } else {
-                return emails;
-              }
-            }
-
-            this.hull.logger.info("runCampaignStrategy.email", { email_address: e.email_address, timestamp });
-            emails.push({
-              timestamp,
-              email_id: e.email_id,
-              email_address: e.email_address
-            });
-            return emails;
-          }, []);
-          this.hull.logger.info("runCampaignStrategy.emailsChunk", emailsToExtract.length);
-          const query = this.buildSegmentQuery(emailsToExtract);
-          return callback(query);
-        });
+        return this.getEmailActivities(campaigns);
       });
   }
 
@@ -131,17 +103,17 @@ export default class EventsAgent {
    */
   getTrackableCampaigns() {
     this.hull.logger.info("getTrackableCampaigns");
-    const weekAgo = moment().subtract(1, "week");
+    const weekAgo = moment().subtract(100, "week");
 
-    return this.client.request({
-      path: "/campaigns",
-      query: {
-        fields: "campaigns.id,campaigns.status,campaigns.title,campaigns.send_time",
-        list_id: this.credentials.mailchimp_list_id,
-        since_send_time: weekAgo.format()
-      },
+    return this.client
+    .get("/campaigns")
+    .query({
+      fields: "campaigns.id,campaigns.status,campaigns.title,campaigns.send_time",
+      list_id: this.credentials.mailchimp_list_id,
+      since_send_time: weekAgo.format()
     })
-    .then(res => {
+    .then(response => {
+      const res = response.body;
       return res.campaigns.filter(c => ["sent", "sending"].indexOf(c.status) !== -1);
     });
   }
@@ -151,13 +123,17 @@ export default class EventsAgent {
    * and then flattens it to return one array for all emails of all campaigns requested.
    * It also adds `campaign_send_time` parameter from campaign to the email infromation.
    * @param  {Array} campaigns
-   * @param  {Function} callback
    * @return {Promise}
    */
-  getEmailActivities(campaigns, callback) {
+  getEmailActivities(campaigns) {
     this.hull.logger.info("getEmailActivities", campaigns);
-    const queries = campaigns.map(c => {
+    const operations = campaigns.map(c => {
+      const operation_id = JSON.stringify({
+        nextOperations: ["handleEmailsActivitiesJob"],
+        campaign: c
+      });
       return {
+        operation_id,
         method: "get",
         path: `/reports/${c.id}/email-activity/`,
         query: { fields: "emails.email_address,emails.activity" },
@@ -166,32 +142,38 @@ export default class EventsAgent {
 
     // we forceBatch here, because the response for small number of operation
     // can be huge and always needs streaming
-    return this.client.batch(queries, { unpack: false, forceBatch: true })
-      .then((results) => {
-        if (!results.response_body_url) {
-          return [];
-        }
-        return this.handleMailchimpResponse(results)
-          .pipe(es.through(function write(data) {
-            data.emails.map(r => {
-              const campaign = _.find(campaigns, { id: r.campaign_id });
-              r.campaign_send_time = campaign.send_time;
-              return this.emit("data", r);
-            });
-          }))
-          // the query for extract is send as POST method so it should not be
-          // too long
-          .pipe(new BatchStream({ size: 4000 }))
-          .pipe(ps.map((...args) => {
-            try {
-              return callback(...args);
-            } catch (e) {
-              console.error(e);
-              throw e;
-            }
-          }))
-          .wait();
-      });
+
+    return this.batchAgent.create(operations);
+    // return this.client.post("/batches").send({ operations })
+    //   .then(response => {
+    //     const { id } = response.body;
+    //     return this.queueAgent.create("handleMailchimpBatchJob", { batchId: id }, { delay: 10000 });
+    //   });
+    //   .then((results) => {
+    //     if (!results.response_body_url) {
+    //       return [];
+    //     }
+    //     return this.handleMailchimpResponse(results)
+    //       .pipe(es.through(function write(data) {
+    //         data.emails.map(r => {
+    //           const campaign = _.find(campaigns, { id: r.campaign_id });
+    //           r.campaign_send_time = campaign.send_time;
+    //           return this.emit("data", r);
+    //         });
+    //       }))
+    //       // the query for extract is send as POST method so it should not be
+    //       // too long
+    //       .pipe(new BatchStream({ size: 4000 }))
+    //       .pipe(ps.map((...args) => {
+    //         try {
+    //           return callback(...args);
+    //         } catch (e) {
+    //           console.error(e);
+    //           throw e;
+    //         }
+    //       }))
+    //       .wait();
+    //   });
   }
 
   /**
@@ -199,33 +181,33 @@ export default class EventsAgent {
    * @param  {String} { response_body_url }
    * @return {Stream}
    */
-  handleMailchimpResponse({ response_body_url }) {
-    const extract = tar.extract();
-    const decoder = JSONStream.parse();
-
-    extract.on("entry", (header, stream, callback) => {
-      if (header.name.match(/\.json/)) {
-        stream.pipe(decoder);
-      }
-
-      stream.on("end", () => {
-        callback(); // ready for next entry
-      });
-
-      stream.resume();
-    });
-
-    request(response_body_url)
-      .pipe(zlib.createGunzip())
-      .pipe(extract);
-
-    return decoder
-      .pipe(es.through(function write(data) {
-        data.map(r => {
-          return this.emit("data", JSON.parse(r.response));
-        });
-      }));
-  }
+  // handleMailchimpResponse({ response_body_url }) {
+  //   const extract = tar.extract();
+  //   const decoder = JSONStream.parse();
+  //
+  //   extract.on("entry", (header, stream, callback) => {
+  //     if (header.name.match(/\.json/)) {
+  //       stream.pipe(decoder);
+  //     }
+  //
+  //     stream.on("end", () => {
+  //       callback(); // ready for next entry
+  //     });
+  //
+  //     stream.resume();
+  //   });
+  //
+  //   request(response_body_url)
+  //     .pipe(zlib.createGunzip())
+  //     .pipe(extract);
+  //
+  //   return decoder
+  //     .pipe(es.through(function write(data) {
+  //       data.map(r => {
+  //         return this.emit("data", JSON.parse(r.response));
+  //       });
+  //     }));
+  // }
 
   /**
    * This method downloads from Mailchimp information for members.
