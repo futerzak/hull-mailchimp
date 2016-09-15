@@ -41,6 +41,7 @@ class segmentsMapping() {
    * If provided segment is not saved to mapping, it is created in Mailchimp
    * and saved to the mapping.
    * @param {Object} segment
+   * @return {Promise}
    */
   createSegment(segment) {
     const mapping = this.getMapping();
@@ -63,6 +64,7 @@ class segmentsMapping() {
   /**
    * Removes audience from Mailchimp and segment from mapping
    * @param {Object} segment
+   * @return {Promise}
    */
   deleteSegment(segment) {
     const mapping = this.getMapping();
@@ -89,6 +91,9 @@ class segmentsMapping() {
     return _.get(mapping, segmentId);
   }
 
+  /**
+   * @return {Promise}
+   */
   syncSegments(segments) {
     const mappedSegments = this.getSegmentIds().map(id => { return { id }});
 

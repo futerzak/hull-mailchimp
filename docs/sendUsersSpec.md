@@ -32,8 +32,7 @@ sendUsersJob(req) {
 addToAudiencesJob(req) {
   const operations = req.payload;
 
-  const users = operations.map(op => op.data);
-  const usersToAddToAudiences = hullAgent.getUsersToAddToAudiences(users);
+  const usersToAddToAudiences = mailchimpAgent.getUsersFromOperations(operations);
 
   const addToAudiencesOps = mailchimpAgent.getAddToAudiencesOps(usersToAddToAudiences);
 

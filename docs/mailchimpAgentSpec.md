@@ -3,7 +3,7 @@ getAddToListOps(users, jobs = []) {
   return users.map(user => {
     const hash = this.getEmailHash(user.email);
     const operation_id = helper.getOperationId(jobs, {
-      user: _.pick(user, ["id", "segment_ids"]),
+      user: _.pick(user, ["id", "email", "segment_ids"]),
       path: `/lists/${this.listId}/members/${hash}`
     });
     return {
@@ -26,7 +26,7 @@ getAddToListOps(users, jobs = []) {
 getAddToAudiencesOps(users) {
   return _.reduce(users, (ops, user) => {
     const listId = req.shipApp.listId;
-    const subscriberHash = req.shipApp.memberAgent.getSubscribedHash(user);
+    const subscriberHash = this.getSubscribedHash(user.email);
     const audienceIds = user.segment_ids.map(s => req.shipApp.segmentsMapping.getAudienceId(s));
 
     _.map(audienceIds, audienceId => {
@@ -47,7 +47,7 @@ getAddToAudiencesOps(users) {
 getRemoveFromAudiencesOp(users) {
   return _.reduce(users, (ops, user) => {
     const listId = req.shipApp.listId;
-    const subscriberHash = req.shipApp.memberAgent.getSubscribedHash(user);
+    const subscriberHash = this.getSubscribedHash(user.email);
     let audienceIds = user.remove_segment_ids.map(s => req.shipApp.segmentsMapping.getAudienceId(s));
 
     _.map(audienceIds, audienceId => {
@@ -59,5 +59,10 @@ getRemoveFromAudiencesOp(users) {
     });
     return ops;
   }, []);
+}
+
+getUsersFromOperations(operations) {
+  const users = operations.map(op => op.data);
+  return users;
 }
 ```
