@@ -1,62 +1,96 @@
+import request from "superagent";
+import prefixPlugin from "superagent-prefix";
+import superagentPromisePlugin from "superagent-promise-plugin";
+import JSONStream from "JSONStream";
+// import BatchStream from "batch-stream";
+import tar from "tar-stream";
+import zlib from "zlib";
+// import ps from "promise-streams";
+import es from "event-stream";
 import _ from "lodash";
-import Promise from "bluebird";
 
-import Mailchimp from "mailchimp-api-v3";
-import limiter from "./limiter";
+
+// import _ from "lodash";
+// import Promise from "bluebird";
+//
+// import Mailchimp from "mailchimp-api-v3";
+// import limiter from "./limiter";
 
 export default class MailchimpClient {
 
-  constructor({ api_key, domain, mailchimp_list_id = {} }) {
-    // the mailchimp-api-v3 library splits the api_key using dash and uses
-    // second part as a api datacenter
-    this.api_key = `${api_key}-${domain}`;
-    this.client = new Mailchimp(this.api_key);
-    this.list_id = mailchimp_list_id;
+  constructor(ship) {
+    this.apiKey = _.get(ship, "private_settings.api_key");
+    this.domain = _.get(ship, "private_settings.domain");
+    this.listId = _.get(ship, "private_settings.mailchimp_list_id");
+    this.req = request;
+  }
+
+  attach(req) {
+
+    if (_.isEmpty(this.domain) || _.isEmpty(this.apiKey) || _.isEmpty(this.listId)) {
+      throw new Error("Mailchimp access data not set!");
+    };
+
+    return req
+      .use(prefixPlugin(`https://${this.domain}.api.mailchimp.com/3.0`))
+      .use(superagentPromisePlugin)
+      .set({ Authorization: `OAuth ${this.apiKey}` })
+      .on("request", (reqData) => {
+        console.log("REQ", reqData.url);
+      });
+  }
+
+  get(url) {
+    const req = this.req.get(url);
+    return this.attach(req);
+  }
+
+  post(url) {
+    const req = this.req.post(url);
+    return this.attach(req);
+  }
+
+  put(url) {
+    const req = this.req.put(url);
+    return this.attach(req);
+  }
+
+  delete(url) {
+    const req = this.req.delete(url);
+    return this.attach(req);
   }
 
   /**
-   * Replaces `path` param at Mailchimp Api request to fill in the selected
-   * list id
-   * @param  {Object} request
-   * @return {Object}
+   * Method to handle Mailchimp batch response as a JSON stream
+   * @param  {String} { response_body_url }
+   * @return {Stream}
    */
-  replacePath(request) {
-    request.path = _.replace(request.path, "{list_id}", this.list_id);
-    return request;
-  }
+  handleResponse({ response_body_url }) {
+    const extract = tar.extract();
+    const decoder = JSONStream.parse();
 
-  /**
-   * Batch operation
-   * @param  {Array} ops
-   * @return {Promise}
-   */
-  batch(ops, options = {}) {
-    if (_.isEmpty(ops)) {
-      return Promise.resolve([]);
-    }
+    extract.on("entry", (header, stream, callback) => {
+      if (header.name.match(/\.json/)) {
+        stream.pipe(decoder);
+      }
 
-    _.defaults(options, { verbose: false, forceBatch: false });
+      stream.on("end", () => {
+        callback(); // ready for next entry
+      });
 
-    // microbatch - when the batch consists of only 1 operation,
-    // let's do it in a traditional query
-    if (!options.forceBatch && ops.length < 30) {
-      return Promise.all(ops.map(op => this.request(op).catch(err => err)));
-    }
-    ops = ops.map(this.replacePath.bind(this));
+      stream.resume();
+    });
 
-    return limiter.key(this.api_key)
-      .schedule(this.client.batch.bind(this.client), ops, options);
-  }
+    request(response_body_url)
+      .pipe(zlib.createGunzip())
+      .pipe(extract);
 
-  /**
-   * Simple sync operation
-   * @param  {Object} params
-   * @return {Promise} response
-   */
-  request(params) {
-    params = this.replacePath(params);
-    return limiter.key(this.api_key)
-      .schedule(this.client.request.bind(this.client), params);
+    return decoder
+      .pipe(es.through(function write(data) {
+        data.map(r => {
+          return this.emit("data", r);
+        });
+      }));
   }
 
 }

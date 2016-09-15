@@ -1,13 +1,12 @@
-import MailchimpClient from "../mailchimp-client.js";
-import MailchimpClientRequest from "../mailchimp-client-request.js";
+import MailchimpClient from "../mailchimp-client";
 import MailchimpAgent from "../mailchimp-agent";
-import UsersAgent from "../users-agent";
-import MembersAgent from "../members-agent";
-import QueueAgent from "../queue/queue-agent";
-import EventsAgent from "../events-agent";
-import BatchAgent from "../batch-agent";
+import HullAgent from "../hull-agent";
+// import QueueAgent from "../queue/queue-agent";
+// import EventsAgent from "../events-agent";
+// import MailchimpBatchAgent from "../mailchimp-batch-agent";
+import SegmentsMappingAgent from "../segments-mapping-agent";
 
-export default function (queueAdapter) {
+export default function ({ queueAdapter }) {
   return function middleware(req, res, next) {
     req.shipApp = req.shipApp || {};
 
@@ -15,14 +14,22 @@ export default function (queueAdapter) {
       return next();
     }
 
-    req.shipApp.queueAgent = new QueueAgent(queueAdapter, req);
-    req.shipApp.mailchimpAgent = new MailchimpAgent(req.hull.ship, req.hull.client, req, MailchimpClient);
-    req.shipApp.mailchimpClientRequest = new MailchimpClientRequest(req.shipApp.mailchimpAgent.getCredentials());
+    const mailchimpClient = new MailchimpClient(req.hull.ship);
 
-    req.shipApp.membersAgent = new MembersAgent(req.shipApp.mailchimpAgent.getCredentials());
-    req.shipApp.usersAgent = new UsersAgent(req.shipApp.mailchimpAgent, req.hull.client);
-    req.shipApp.batchAgent = new BatchAgent(req.shipApp.mailchimpClientRequest, req.shipApp.queueAgent)
-    req.shipApp.eventsAgent = new EventsAgent(req.shipApp.mailchimpClientRequest, req.hull.client, req.shipApp.mailchimpAgent.getCredentials(), req.shipApp.queueAgent, req.shipApp.batchAgent);
+    // req.shipApp.queueAgent = new QueueAgent(queueAdapter, req);
+
+    const segmentsMappingAgent = new SegmentsMappingAgent(mailchimpClient, req.hull.client, req.hull.ship);
+    const mailchimpAgent = new MailchimpAgent(mailchimpClient, segmentsMappingAgent, req.hull.ship, req.hull.client);
+    const hullAgent = new HullAgent(req.hull.ship, req.hull.client);
+    // req.shipApp.mailchumpBatchAgent = new MailchimpBatchAgent(req.hull.client, req.shipApp.mailchimpClient, req.shipApp.queueAgent);
+    // req.shipApp.eventsAgent = new EventsAgent(req.shipApp.mailchimpClient, req.hull.client, req.hull.ship, req.shipApp.queueAgent, req.shipApp.batchAgent);
+
+    req.shipApp = {
+      mailchimpClient,
+      segmentsMappingAgent,
+      mailchimpAgent,
+      hullAgent
+    };
 
     return next();
   };

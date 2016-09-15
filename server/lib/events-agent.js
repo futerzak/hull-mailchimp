@@ -128,10 +128,7 @@ export default class EventsAgent {
   getEmailActivities(campaigns) {
     this.hull.logger.info("getEmailActivities", campaigns);
     const operations = campaigns.map(c => {
-      const operation_id = JSON.stringify({
-        nextOperations: ["handleEmailsActivitiesJob"],
-        campaign: c
-      });
+      const operation_id = this.mailchimpBatchAgent.operationId(["handleEmailsActivitiesJob"], { campaign: c });
       return {
         operation_id,
         method: "get",
@@ -142,8 +139,7 @@ export default class EventsAgent {
 
     // we forceBatch here, because the response for small number of operation
     // can be huge and always needs streaming
-
-    return this.batchAgent.create(operations);
+    
     // return this.client.post("/batches").send({ operations })
     //   .then(response => {
     //     const { id } = response.body;

@@ -38,7 +38,9 @@ export default class KueAdapter {
         job.delay(delay);
       }
 
-      return job.save(callback);
+      return job.save((err) => {
+        callback(err, job.id);
+      });
     });
   }
 

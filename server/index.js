@@ -3,8 +3,8 @@ import QueueAgent from "./lib/queue/queue-agent";
 import KueAdapter from "./lib/queue/adapter/kue";
 import controllers from "./controller";
 
-import QueueRouter from "./router/queue-router";
-import QueueApp from "./app/queue-app";
+import WorkerRouter from "./router/worker-router";
+import WorkerApp from "./app/worker-app";
 // import internalApp from "./internal-app";
 import publicApp from "./public-app";
 
@@ -15,14 +15,9 @@ export function Server({ hostSecret }) {
 
   const queueAgent = new QueueAgent(queueAdapter);
 
-  new QueueApp({ queueAdapter, hostSecret })
-    .use(QueueRouter(controllers))
+  new WorkerApp({ queueAdapter, hostSecret })
+    .use(WorkerRouter(controllers))
     .process();
 
-  // internalApp({
-  //   hostSecret,
-  //   queueAgent
-  // });
-
-  return publicApp({ queueAgent, hostSecret });
+  return publicApp({ queueAdapter, hostSecret });
 }

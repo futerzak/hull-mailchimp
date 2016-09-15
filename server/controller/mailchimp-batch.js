@@ -1,6 +1,3 @@
-import _ from "lodash";
-import Promise from "bluebird";
-
 export default class MailchimpBatchController {
   /**
    * Parses the extract results and queues chunks for export operations
@@ -11,10 +8,11 @@ export default class MailchimpBatchController {
   handleMailchimpBatchJob(req) {
     const { batchId } = req.payload;
 
-    return req.shipApp.batchAgent.handleBatch(batchId);
+    return req.shipApp.mailchimpBatchAgent.handleBatch(batchId);
   }
 
   checkBatchQueueJob(req) {
+    console.log("!!!!");
     return req.shipApp.mailchimpAgent.checkBatchQueue();
   }
 }

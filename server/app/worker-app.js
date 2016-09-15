@@ -5,7 +5,7 @@ import Hull from "hull";
 import AppMiddleware from "../lib/middlewares/app";
 import TokenMiddleware from "../lib/middlewares/token";
 
-export default class QueueApp {
+export default class WorkerApp {
   constructor({ queueAdapter, hostSecret }) {
     this.hostSecret = hostSecret;
     this.queueAdapter = queueAdapter;
@@ -36,7 +36,7 @@ export default class QueueApp {
       this.supply
         .use(TokenMiddleware)
         .use(Hull.Middleware({ hostSecret: this.hostSecret }))
-        .use(AppMiddleware(this.queueAdapter))
+        .use(AppMiddleware({ queueAdapter: this.queueAdapter }))
         .each(req, res, callback);
     })
     .then(() => {

@@ -8,11 +8,12 @@ import { NotifHandler, Middleware } from "hull";
 import fetchShip from "./lib/middlewares/fetch-ship";
 import oauth from "./lib/oauth-client";
 import AppMiddleware from "./lib/middlewares/app";
+import QueueAgentMiddleware from "./lib/middlewares/queue-agent";
 import snsMessage from "./lib/middlewares/sns-message";
 import controller from "./controller";
 const { notifyController } = controller;
 
-export default function Server({ queueAgent, hostSecret }) {
+export default function Server({ queueAdapter, hostSecret }) {
   const app = express();
 
   app.use(express.static(path.resolve(__dirname, "..", "dist")));
@@ -20,14 +21,14 @@ export default function Server({ queueAgent, hostSecret }) {
   app.set("views", `${__dirname}/views`);
   app.engine("html", renderFile);
 
-  app.post("/notify", Middleware({ hostSecret }), AppMiddleware({ hostSecret }), NotifHandler({
+  app.post("/notify", QueueAgentMiddleware({ queueAdapter }), NotifHandler({
     hostSecret,
     groupTraits: false,
     handlers: {
-      "segment:update": notifyController.segmentUpdateHandler.bind(notifyController),
-      "segment:delete": notifyController.segmentDeleteHandler.bind(notifyController),
-      "user:update": notifyController.userUpdateHandler.bind(notifyController),
-      "ship:update": notifyController.shipUpdateHandler.bind(notifyController),
+      "segment:update": notifyController.segmentUpdateHandler,
+      "segment:delete": notifyController.segmentDeleteHandler,
+      "user:update": notifyController.userUpdateHandler,
+      "ship:update": notifyController.shipUpdateHandler,
     }
   }));
 
@@ -47,7 +48,7 @@ export default function Server({ queueAgent, hostSecret }) {
   // });
 
   app.post("/batch", snsMessage, bodyParser.json(), (req, res) => {
-    queueAgent.create("handleBatchJob", req.body, {}, req);
+    // queueAgent.create("handleBatchJob", req.body, {}, req);
     res.end("ok");
   });
 
@@ -56,9 +57,9 @@ export default function Server({ queueAgent, hostSecret }) {
     res.end("ok");
   });
 
-  app.post("/sync", snsMessage, bodyParser.json(), (req, res) => {
-    queueAgent.create("syncJob", req.body, {}, req);
-    res.end("ok");
+  app.post("/sync", QueueAgentMiddleware({ queueAdapter }), (req, res) => {
+    return req.shipApp.queueAgent.create("syncJob")
+      .then(jobId => res.end(`ok: ${jobId}`));
   });
 
   app.use("/auth", oauth({
@@ -80,9 +81,9 @@ export default function Server({ queueAgent, hostSecret }) {
     res.end("ok");
   });
 
-  app.post("/checkBatchQueue", bodyParser.json(), fetchShip, (req, res) => {
-    queueAgent.create("checkBatchQueueJob", {}, {}, req);
-    res.end("ok");
+  app.post("/checkBatchQueue", QueueAgentMiddleware({ queueAdapter }), (req, res) => {
+    req.shipApp.queueAgent.create("checkBatchQueueJob")
+      .then((jobId) => res.end(`ok: ${jobId}`));
   });
 
   app.get("/manifest.json", (req, res) => {

@@ -1,7 +1,4 @@
-import _ from "lodash";
 import Promise from "bluebird";
-import ps from "promise-streams";
-import BatchStream from "batch-stream";
 
 export default class SyncController {
 
@@ -11,22 +8,22 @@ export default class SyncController {
    * sync for all users
    */
   syncJob(req) {
-    const agent = req.shipApp.mailchimpAgent;
+    const { segmentsMappingAgent, mailchimpAgent } = req.shipApp;
     const client = req.hull.client;
 
     client.logger.info("request.sync.start");
 
-    return agent.removeAudiences()
-      .then(agent.handleShipUpdate.bind(agent, false, true))
-      .then(agent.fetchSyncHullSegments.bind(agent))
-      .then(segments => {
-        client.logger.info("Request the extract for segments", segments.length);
-        if (segments.length === 0) {
-          return agent.requestExtract({});
-        }
-        return Promise.map(segments, segment => {
-          return agent.requestExtract({ segment });
-        });
-      });
+    return segmentsMappingAgent.syncSegments();
+      // .then(agent.handleShipUpdate.bind(agent, false, true))
+      // .then(agent.fetchSyncHullSegments.bind(agent))
+      // .then(segments => {
+      //   client.logger.info("Request the extract for segments", segments.length);
+      //   if (segments.length === 0) {
+      //     return agent.requestExtract({});
+      //   }
+      //   return Promise.map(segments, segment => {
+      //     return agent.requestExtract({ segment });
+      //   });
+      // });
   }
 }

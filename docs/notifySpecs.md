@@ -13,7 +13,9 @@ userUpdateHandler(req) {
 
   // batch grouping
 
-  return req.shipApp.queueAgent.create("sendUsersJob", { users: [ user ] });
+  return Promise.all([
+    req.shipApp.queueAgent.create("sendUsersJob", { users: [ user ] }),
+    req.shipApp.queueAgent.create("trackEventsJob")
 }
 
 /**
