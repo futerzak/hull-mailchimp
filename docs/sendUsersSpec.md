@@ -24,10 +24,22 @@ sendUsersJob(req) {
   return req.shipApp.mailchimpBatchAgent.create(ops);
 }
 
+
+/**
+ * this is a job triggered after successfull `sendUsersJob` with users who needed
+ * to be saved to mailchimp list before anything else
+ */
 addToAudiencesJob(req) {
   const operations = req.payload;
 
+  const users = operations.map(op => op.data);
+  const usersToAddToAudiences = hullAgent.getUsersToAddToAudiences(users);
 
+  const addToAudiencesOps = mailchimpAgent.getAddToAudiencesOps(usersToAddToAudiences);
+
+  const ops = _.concat(addToAudiencesOps);
+
+  return req.shipApp.mailchimpBatchAgent.create(ops);
 }
 
 ```

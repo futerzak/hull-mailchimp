@@ -17,7 +17,8 @@ userUpdateHandler(req) {
 }
 
 /**
- * When segment is added or updated make sure its in the segments mapping
+ * When segment is added or updated make sure its in the segments mapping,
+ * and trigger an extract for that segment to update users.
  */
 segmentUpdateHandler(req) {
   const { segment } = req.payload;
@@ -28,11 +29,20 @@ segmentUpdateHandler(req) {
     });
 }
 
+/**
+ * Removes deleted segment from Mailchimp and from ship segment
+ */
 segmentDeleteHandler(req) {
   return req.shipApp.segmentsMapping.deleteSegment(segment);
 }
 
+/**
+ * Makes sure that all existing Hull segments have mapped Mailchimp static segment
+ */
 shipUpdateHandler(req) {
-
+  return req.shipApp.hullAgent.getSegment()
+    .then(segments => {
+      return req.shipApp.segmentsMapping.syncSegments(segments);
+    });
 }
 ```

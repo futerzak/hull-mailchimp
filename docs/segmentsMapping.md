@@ -1,5 +1,9 @@
 ```javascript
 
+/**
+ * Agent managing Mailchimp static segments aka audiences
+ * and mapping stored in ships private settings
+ */
 class segmentsMapping() {
 
   constructor(mailchimpClient, hullClient, ship) {
@@ -13,6 +17,10 @@ class segmentsMapping() {
     return this.ship.private_settings[this.settingKey];
   }
 
+  /**
+   * Updates internal segments mapping
+   * @param {Object} mapping
+   */
   updateMapping(mapping) {
     const toSave = {
       private_settings: {};
@@ -22,11 +30,19 @@ class segmentsMapping() {
     return this.hullClient.put(this.ship.id, toSave);
   }
 
+  /**
+   * Returns ids of segments saved in mapping
+   */
   getSegmentIds() {
     return _.keys(this.getMapping());
   }
 
-  updateSegment(segment) {
+  /**
+   * If provided segment is not saved to mapping, it is created in Mailchimp
+   * and saved to the mapping.
+   * @param {Object} segment
+   */
+  createSegment(segment) {
     const mapping = this.getMapping();
     if (_.get(mapping, segment.id)) {
       return Promise.resolve();
@@ -44,6 +60,10 @@ class segmentsMapping() {
       });
   }
 
+  /**
+   * Removes audience from Mailchimp and segment from mapping
+   * @param {Object} segment
+   */
   deleteSegment(segment) {
     const mapping = this.getMapping();
     if (!_.get(mapping, segment.id)) {
@@ -59,9 +79,28 @@ class segmentsMapping() {
       });
   }
 
+  /**
+   * Returns Mailchimp static segment aka Audience for corresponding segment
+   * @param {String} segmentId
+   * @return {String}
+   */
   getAudienceId(segmentId) {
     const mapping = this.getMapping();
     return _.get(mapping, segmentId);
+  }
+
+  syncSegments(segments) {
+    const mappedSegments = this.getSegmentIds().map(id => { return { id }});
+
+    const newSegments = _.differenceBy(segments, mappedSegments, 'id');
+    const oldSegments = _.difference(mappedSegments, segments, 'id');
+
+    return Promise.all(newSegments.map(segment => {
+      return this.createSegment(segment);
+    }))
+    .map(oldSegments.map(segment => {
+      return this.delete(segment);
+    }));
   }
 }
 ```
