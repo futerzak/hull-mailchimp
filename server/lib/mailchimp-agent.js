@@ -73,13 +73,13 @@ export default class MembersAgent {
   getAddToAudiencesOps(users) {
     return _.reduce(users, (ops, user) => {
       const listId = this.listId;
-      const subscriberHash = this.getSubscribedHash(user.email);
+      // const subscriberHash = this.getEmailHash(user.email);
       const audienceIds = user.segment_ids.map(s => this.segmentsMappingAgent.getAudienceId(s));
 
       _.map(audienceIds, audienceId => {
         const op = {
-          method: "PUT",
-          path: `/lists/${listId}/segments/${audienceId}/members/${subscriberHash}`,
+          method: "POST",
+          path: `/lists/${listId}/segments/${audienceId}/members`,
           body: JSON.stringify({
             email_address: user.email,
             status: "subscribed"
@@ -94,8 +94,8 @@ export default class MembersAgent {
   getRemoveFromAudiencesOp(users) {
     return _.reduce(users, (ops, user) => {
       const listId = this.listId;
-      const subscriberHash = this.getSubscribedHash(user.email);
-      const audienceIds = user.remove_segment_ids.map(s => this.segmentsMappingAgent.getAudienceId(s));
+      const subscriberHash = this.getEmailHash(user.email);
+      const audienceIds = _.get(user, "remove_segment_ids", []).map(s => this.segmentsMappingAgent.getAudienceId(s));
 
       _.map(audienceIds, audienceId => {
         const op = {
@@ -109,7 +109,7 @@ export default class MembersAgent {
   }
 
   getUsersFromOperations(operations) {
-    const users = operations.map(op => op.data);
+    const users = operations.map(op => op.data.user);
     return users;
   }
 

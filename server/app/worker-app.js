@@ -19,11 +19,14 @@ export default class WorkerApp {
 
   process() {
     this.queueAdapter.process("queueApp", (job) => {
-      return this.dispatch(job.data.name, job.data.context, job.data.payload);
+      return this.dispatch(job);
     });
   }
 
-  dispatch(jobName, req, jobData) {
+  dispatch(job) {
+    const jobName = job.data.name;
+    const req = job.data.context;
+    const jobData = job.data.payload;
     console.log("dispatch", jobName);
     req.payload = jobData;
     const res = {};
@@ -40,7 +43,7 @@ export default class WorkerApp {
         .each(req, res, callback);
     })
     .then(() => {
-      return this.handlers[jobName](req, res);
+      return this.handlers[jobName].call(job, req, res);
     });
   }
 

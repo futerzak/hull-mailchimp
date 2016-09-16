@@ -2,19 +2,10 @@ import request from "superagent";
 import prefixPlugin from "superagent-prefix";
 import superagentPromisePlugin from "superagent-promise-plugin";
 import JSONStream from "JSONStream";
-// import BatchStream from "batch-stream";
 import tar from "tar-stream";
 import zlib from "zlib";
-// import ps from "promise-streams";
 import es from "event-stream";
 import _ from "lodash";
-
-
-// import _ from "lodash";
-// import Promise from "bluebird";
-//
-// import Mailchimp from "mailchimp-api-v3";
-// import limiter from "./limiter";
 
 export default class MailchimpClient {
 
@@ -26,17 +17,16 @@ export default class MailchimpClient {
   }
 
   attach(req) {
-
     if (_.isEmpty(this.domain) || _.isEmpty(this.apiKey) || _.isEmpty(this.listId)) {
       throw new Error("Mailchimp access data not set!");
-    };
+    }
 
     return req
       .use(prefixPlugin(`https://${this.domain}.api.mailchimp.com/3.0`))
       .use(superagentPromisePlugin)
       .set({ Authorization: `OAuth ${this.apiKey}` })
       .on("request", (reqData) => {
-        console.log("REQ", reqData.url);
+        console.log("REQ", reqData.method, reqData.url);
       });
   }
 

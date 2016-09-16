@@ -1,27 +1,54 @@
 import Promise from "bluebird";
-// import BatchSyncHandler from "../lib/batch-sync-handler";
+import _ from "lodash";
+import BatchSyncHandler from "../lib/batch-sync-handler";
 
 export default class NotifyController {
 
   shipUpdateHandler(payload, { req }) {
-    return Promise.resolve();
-    // return req.shipApp.queueAgent.create("shipUpdateHandlerJob");
+    return req.shipApp.queueAgent.create("shipUpdateHandlerJob");
   }
 
   /**
    * Handles events of user
    */
-  userUpdateHandler(req) {
-    const { user, changes = {}, segments = [] } = req.payload;
-    const { left = [] } = changes.segments || {};
-    user.segment_ids = user.segment_ids || segments.map(s => s.id);
-    user.remove_segment_ids = left.map(s => s.id);
+  userUpdateHandler(payload, { req }) {
+    return BatchSyncHandler.getHandler({
+      hull: req.hull,
+      ship: req.hull.ship,
+      options: {
+        maxSize: 100,
+        throttle: 30000
+      }
+    }).setCallback(messages => {
+      return req.shipApp.queueAgent.create("userUpdateHandlerJob", { messages });
+    })
+    .add(payload.message);
+  }
 
-    // batch grouping
+  /**
+   * Handles events of user
+   */
+  userUpdateHandlerJob(req) {
+    const { hullAgent, segmentsMappingAgent, queueAgent } = req.shipApp;
+
+    const users = _.map(req.payload.messages, (message) => {
+      const { user, changes = {}, segments = [] } = message;
+      const { left = [] } = changes.segments || {};
+
+      if (hullAgent.userWhitelisted(user)) {
+        user.segment_ids = user.segment_ids || segments.map(s => s.id);
+        user.remove_segment_ids = left.map(s => s.id);
+      } else {
+        user.segment_ids = [];
+        user.remove_segment_ids = segmentsMappingAgent.getSegmentIds();
+      }
+
+      return user;
+    });
 
     return Promise.all([
-      req.shipApp.queueAgent.create("sendUsersJob", { users: [user] }),
-      req.shipApp.queueAgent.create("trackEventsJob")
+      queueAgent.create("sendUsersJob", { users }),
+      // req.shipApp.queueAgent.create("trackEventsJob")
     ]);
   }
 
@@ -29,30 +56,44 @@ export default class NotifyController {
    * When segment is added or updated make sure its in the segments mapping,
    * and trigger an extract for that segment to update users.
    */
-  segmentUpdateHandler(req) {
-    const { segment } = req.payload;
+  segmentUpdateHandler(payload, { req }) {
+    return req.shipApp.queueAgent.create("segmentUpdateHandlerJob", { segment: payload.message });
+  }
 
-    return req.shipApp.segmentsMappingAgent.updateSegment(segment)
+  segmentUpdateHandlerJob(req) {
+    const { segment } = req.payload;
+    const { segmentsMappingAgent, extractAgent, hullAgent } = req.shipApp;
+
+    return segmentsMappingAgent.createSegment(segment)
+      .then(segmentsMappingAgent.updateMapping.bind(segmentsMappingAgent))
       .then(() => {
-        req.shipApp.hullAgent.requestExtract({ segment });
+        return extractAgent.requestExtract({ segment, fields: hullAgent.getExtractFields() });
       });
+  }
+
+  segmentDeleteHandler(payload, { req }) {
+    return req.shipApp.queueAgent.create("segmentDeleteHandlerJob", { segment: payload.message });
   }
 
   /**
    * Removes deleted segment from Mailchimp and from ship segment
    */
-  segmentDeleteHandler(req) {
+  segmentDeleteHandlerJob(req) {
     const { segment } = req.payload;
-    return req.shipApp.segmentsMappingAgent.deleteSegment(segment);
+    const { segmentsMappingAgent } = req.shipApp;
+    return segmentsMappingAgent.deleteSegment(segment)
+      .then(segmentsMappingAgent.updateMapping.bind(segmentsMappingAgent));
   }
 
   /**
    * Makes sure that all existing Hull segments have mapped Mailchimp static segment
    */
   shipUpdateHandlerJob(req) {
+    const { segmentsMappingAgent } = req.shipApp;
     return req.shipApp.hullAgent.getSegments()
       .then(segments => {
-        return req.shipApp.segmentsMappingAgent.syncSegments(segments);
+        return segmentsMappingAgent.syncSegments(segments)
+          .then(segmentsMappingAgent.updateMapping.bind(segmentsMappingAgent));
       });
   }
 }

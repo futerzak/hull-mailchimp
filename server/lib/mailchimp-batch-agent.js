@@ -27,11 +27,16 @@ export default class MailchimpBatchAgent {
       return Promise.resolve([]);
     }
 
-    return this.mailchimpClientRequest
+    return this.mailchimpClient
       .post("/batches")
       .send({ operations })
       .then(response => {
         const { id } = response.body;
+        this.hullClient.logger.info("handleMailchimpBatchJob.create", id);
+        if (_.filter(operations, "operation_id").length === 0) {
+          return Promise.resolve();
+        }
+
         return this.queueAgent.create("handleMailchimpBatchJob", { batchId: id }, { delay: 10000 });
       })
       .catch(err => {
@@ -43,13 +48,15 @@ export default class MailchimpBatchAgent {
    * checks if the batch is finished
    * @api
    */
-  handleBatch(batchId) {
-    return this.mailchimpClientRequest.get(`/batches/${batchId}`)
+  handleBatch(batchId, attempt) {
+    return this.mailchimpClient
+      .get(`/batches/${batchId}`)
       .then((response) => {
         const batchInfo = response.body;
-        console.log(_.omit(batchInfo, "_links"));
+        this.hullClient.logger.info(_.omit(batchInfo, "_links"));
         if (batchInfo.status !== "finished") {
-          return this.queueAgent.create("handleMailchimpBatchJob", { batchId }, { delay: 10000 });
+          attempt++;
+          return this.queueAgent.create("handleMailchimpBatchJob", { batchId, attempt }, { delay: 10000 });
         }
 
         if (batchInfo.total_operations === 0
@@ -68,7 +75,7 @@ export default class MailchimpBatchAgent {
               }));
             } catch (e) {
               console.error(e);
-              throw e;
+              return Promise.reject(e);
             }
           }))
           .wait();

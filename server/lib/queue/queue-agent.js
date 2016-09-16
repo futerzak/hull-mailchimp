@@ -1,5 +1,3 @@
-import request from "supertest";
-import Promise from "bluebird";
 import _ from "lodash";
 
 /**

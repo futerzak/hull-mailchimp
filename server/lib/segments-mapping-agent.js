@@ -13,18 +13,19 @@ export default class SegmentsAgent {
     this.ship = ship;
     this.settingKey = "segment_mapping";
     this.listId = _.get(ship, "private_settings.mailchimp_list_id");
-  }
-
-  getMapping() {
-    return _.get(this.ship, `private_settings[${this.settingKey}]`, {});
+    this.mapping = _.get(this.ship, `private_settings[${this.settingKey}]`, {});
+    this.originalMapping = _.cloneDeep(this.mapping);
   }
 
   /**
    * Updates internal segments mapping
    * @param {Object} mapping
    */
-  updateMapping(mapping = {}) {
-    this.ship.private_settings[this.settingKey] = mapping;
+  updateMapping() {
+    if (_.isEqual(this.originalMapping, this.mapping)) {
+      return Promise.resolve();
+    }
+
     return this.hullClient.put(this.ship.id, { private_settings: this.ship.private_settings });
   }
 
@@ -32,7 +33,7 @@ export default class SegmentsAgent {
    * Returns ids of segments saved in mapping
    */
   getSegmentIds() {
-    return _.keys(this.getMapping());
+    return _.keys(this.mapping);
   }
 
   /**
@@ -42,9 +43,8 @@ export default class SegmentsAgent {
    * @return {Promise}
    */
   createSegment(segment) {
-    const mapping = this.getMapping();
     const listId = this.listId;
-    if (_.get(mapping, segment.id)) {
+    if (_.get(this.mapping, segment.id)) {
       return Promise.resolve();
     }
 
@@ -55,8 +55,8 @@ export default class SegmentsAgent {
         static_segment: []
       })
       .then((res) => {
-        mapping[segment.id] = res.body.id;
-        return this.updateMapping(mapping);
+        this.mapping[segment.id] = res.body.id;
+        return Promise.resolve();
       });
   }
 
@@ -66,18 +66,23 @@ export default class SegmentsAgent {
    * @return {Promise}
    */
   deleteSegment(segment) {
-    const mapping = this.getMapping();
     const listId = this.listId;
-    if (!_.get(mapping, segment.id)) {
+    if (!_.get(this.mapping, segment.id)) {
       return Promise.resolve();
     }
 
-    const audienceId = _.get(mapping, segment.id);
+    const audienceId = _.get(this.mapping, segment.id);
     return this.mailchimpClient
       .delete(`/lists/${listId}/segments/${audienceId}`)
       .then(() => {
-        _.unset(mapping, segment.id);
-        return this.updateMapping(mapping);
+        _.unset(this.mapping, segment.id);
+        return Promise.resolve();
+      }, (err) => {
+        if (err.response.statusCode === 404) {
+          _.unset(this.mapping, segment.id);
+          return Promise.resolve();
+        }
+        return Promise.reject(err);
       });
   }
 
@@ -87,8 +92,7 @@ export default class SegmentsAgent {
    * @return {String}
    */
   getAudienceId(segmentId) {
-    const mapping = this.getMapping();
-    return _.get(mapping, segmentId);
+    return _.get(this.mapping, segmentId);
   }
 
   /**
@@ -98,17 +102,16 @@ export default class SegmentsAgent {
     const mappedSegments = this.getSegmentIds().map(id => { return { id }; });
 
     const newSegments = _.differenceBy(segments, mappedSegments, "id");
-    const oldSegments = _.difference(mappedSegments, segments, "id");
+    const oldSegments = _.differenceBy(mappedSegments, segments, "id");
 
-    console.log("MAPPING", segments, newSegments, oldSegments);
-
-    return Promise.all(newSegments.map(segment => {
+    return Promise.map(newSegments, segment => {
       return this.createSegment(segment);
-    }))
+    }, { concurrency: 5 })
     .then(() => {
-      return Promise.all(oldSegments.map(segment => {
+      return Promise.map(oldSegments, segment => {
         return this.deleteSegment(segment);
-      }));
-    });
+      }, { concurrency: 5 });
+    })
+    .then(this.updateMapping.bind(this));
   }
 }

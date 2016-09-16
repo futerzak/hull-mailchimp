@@ -47,9 +47,14 @@ export default function Server({ queueAdapter, hostSecret }) {
   //   res.end("ok");
   // });
 
-  app.post("/batch", snsMessage, bodyParser.json(), (req, res) => {
-    // queueAgent.create("handleBatchJob", req.body, {}, req);
-    res.end("ok");
+  app.post("/batch", bodyParser.json(), QueueAgentMiddleware({ queueAdapter }), (req, res) => {
+    const segmentId = req.query.segment_id || null;
+    return req.shipApp.queueAgent.create("handleBatchExtractJob", {
+        body: req.body,
+        chunkSize: 100,
+        segmentId
+      })
+      .then(jobId => res.end(`ok: ${jobId}`));
   });
 
   app.post("/track", snsMessage, bodyParser.json(), (req, res) => {

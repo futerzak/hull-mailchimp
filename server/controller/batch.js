@@ -15,7 +15,7 @@ export default class BatchController {
    * Handles extract sent from Hull with optional setting selected segment_id
    */
   handleBatchExtractJob(req) {
-    return req.shipApp.hullAgent.handleExtract(req.payload.body, req.payload.chunkSize, (users) => {
+    return req.shipApp.extractAgent.handleExtract(req.payload.body, req.payload.chunkSize, (users) => {
       if (req.payload.segmentId) {
         users = users.map(u => {
           u.segment_ids = _.uniq(_.concat(u.segment_ids || [], [req.payload.segmentId]));
@@ -38,12 +38,15 @@ export default class BatchController {
     const { hullAgent, mailchimpAgent, mailchimpBatchAgent } = req.shipApp;
 
     const usersToAddToList = hullAgent.getUsersToAddToList(users);
-    const usersToAddToAudiences = hullAgent.getUsersToAddToAudiences(users);
-    const usersToRemoveFromAudiences = hullAgent.getUsersToRemoveFromAudiences(users);
+    const usersToAddOrRemove = hullAgent.usersToAddOrRemove(users);
 
-    const addToListOps = mailchimpAgent.getAddToListOps(usersToAddToList, ["addToAudiencesJob"]);
-    const addToAudiencesOps = mailchimpAgent.getAddToAudiencesOps(usersToAddToAudiences);
-    const removeFromAudiencesOps = mailchimpAgent.getRemoveFromAudiencesOp(usersToRemoveFromAudiences);
+    const addToListOps = mailchimpAgent.getAddToListOps(usersToAddToList, ["addToAudiencesJob", "updateUsersJob"]);
+    const addToAudiencesOps = mailchimpAgent.getAddToAudiencesOps(usersToAddOrRemove);
+    const removeFromAudiencesOps = mailchimpAgent.getRemoveFromAudiencesOp(usersToAddOrRemove);
+
+    req.hull.client.logger.info("sendUsersJob.ops", {
+      addToListOps, addToAudiencesOps, removeFromAudiencesOps
+    });
 
     const ops = _.concat(addToListOps, addToAudiencesOps, removeFromAudiencesOps);
 
@@ -58,7 +61,7 @@ export default class BatchController {
   addToAudiencesJob(req) {
     const operations = req.payload;
     const { mailchimpAgent, mailchimpBatchAgent } = req.shipApp;
-
+    // TODO: check if mailchimp operation was successful
     const usersToAddToAudiences = mailchimpAgent.getUsersFromOperations(operations);
 
     const addToAudiencesOps = mailchimpAgent.getAddToAudiencesOps(usersToAddToAudiences);
@@ -66,5 +69,29 @@ export default class BatchController {
     const ops = _.concat(addToAudiencesOps);
 
     return mailchimpBatchAgent.create(ops);
+  }
+
+  updateUsersJob(req) {
+    const operations = req.payload;
+    return Promise.all(operations.map(({ response, data }) => {
+      const traits = req.shipApp.hullAgent.mailchimpFields.reduce((t, path) => {
+        const key = _.last(path.split("."));
+        const value = _.get(response, path);
+        if (!_.isEmpty(value)) {
+          t[key] = value;
+        }
+        return t;
+      }, {});
+
+      if (response.status === 200) {
+        traits.unique_email_id = response.unique_email_id;
+      } else {
+        traits.import_error = response.detail;
+      }
+
+      return req.hull.client.as(data.user.id).traits(traits, {
+        source: "mailchimp"
+      });
+    }));
   }
 }
