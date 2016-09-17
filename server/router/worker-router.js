@@ -20,8 +20,9 @@ export default function (deps) {
 
     queueApp.attach("requestTrackJob", trackController.requestTrackJob);
     queueApp.attach("trackJob", trackController.trackJob);
-    queueApp.attach("trackChunkJob", trackController.trackChunkJob);
+    queueApp.attach("trackUsersJob", trackController.trackUsersJob);
     queueApp.attach("handleEmailsActivitiesJob", trackController.handleEmailsActivitiesJob);
+    queueApp.attach("handleMembersActivitiesJob", trackController.handleMembersActivitiesJob);
 
     queueApp.attach("shipUpdateHandlerJob", notifyController.shipUpdateHandlerJob);
     queueApp.attach("segmentUpdateHandlerJob", notifyController.segmentUpdateHandlerJob);

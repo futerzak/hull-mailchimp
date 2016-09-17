@@ -2,14 +2,10 @@ import express from "express";
 import path from "path";
 import { renderFile } from "ejs";
 import bodyParser from "body-parser";
-import _ from "lodash";
-import { NotifHandler, Middleware } from "hull";
+import { NotifHandler } from "hull";
 
-import fetchShip from "./lib/middlewares/fetch-ship";
 import oauth from "./lib/oauth-client";
-import AppMiddleware from "./lib/middlewares/app";
 import QueueAgentMiddleware from "./lib/middlewares/queue-agent";
-import snsMessage from "./lib/middlewares/sns-message";
 import controller from "./controller";
 const { notifyController } = controller;
 
@@ -32,34 +28,22 @@ export default function Server({ queueAdapter, hostSecret }) {
     }
   }));
 
-  // app.post("/notify", snsMessage, bodyParser.json(), (req, res) => {
-  //   if (_.get(req.body, "Subject") === "user_report:update") {
-  //     // exclude users being recently synced from mailchimp
-  //     const message = JSON.parse(req.body.Message);
-  //     if (!_.isEmpty(_.get(message.changes, "user['traits_mailchimp/unique_email_id'][1]"))) {
-  //       console.log("handleUserUpdate.skippingUser", _.get(message.changes, "user['traits_mailchimp/unique_email_id'][1]"));
-  //       return res.end("ok");
-  //     }
-  //   }
-  //
-  //   req.body = JSON.stringify(req.body);
-  //   queueAgent.queueRequest(req);
-  //   res.end("ok");
-  // });
-
   app.post("/batch", bodyParser.json(), QueueAgentMiddleware({ queueAdapter }), (req, res) => {
     const segmentId = req.query.segment_id || null;
     return req.shipApp.queueAgent.create("handleBatchExtractJob", {
-        body: req.body,
-        chunkSize: 100,
-        segmentId
-      })
-      .then(jobId => res.end(`ok: ${jobId}`));
+      body: req.body,
+      chunkSize: 100,
+      segmentId
+    })
+    .then(jobId => res.end(`ok: ${jobId}`));
   });
 
-  app.post("/track", snsMessage, bodyParser.json(), (req, res) => {
-    queueAgent.create("trackJob", req.body, {}, req);
-    res.end("ok");
+  app.post("/track", bodyParser.json(), QueueAgentMiddleware({ queueAdapter }), (req, res) => {
+    return req.shipApp.queueAgent.create("trackJob", {
+      body: req.body,
+      chunkSize: 100
+    })
+    .then(jobId => res.end(`ok: ${jobId}`));
   });
 
   app.post("/sync", QueueAgentMiddleware({ queueAdapter }), (req, res) => {
@@ -81,9 +65,9 @@ export default function Server({ queueAdapter, hostSecret }) {
     hostSecret
   }));
 
-  app.post("/requestTrack", bodyParser.json(), fetchShip, (req, res) => {
-    queueAgent.create("requestTrackJob", {}, {}, req);
-    res.end("ok");
+  app.post("/requestTrack", QueueAgentMiddleware({ queueAdapter }), (req, res) => {
+    return req.shipApp.queueAgent.create("requestTrackJob")
+      .then(jobId => res.end(`ok: ${jobId}`));
   });
 
   app.post("/checkBatchQueue", QueueAgentMiddleware({ queueAdapter }), (req, res) => {

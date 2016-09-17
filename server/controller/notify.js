@@ -48,7 +48,7 @@ export default class NotifyController {
 
     return Promise.all([
       queueAgent.create("sendUsersJob", { users }),
-      // req.shipApp.queueAgent.create("trackEventsJob")
+      queueAgent.create("trackUsersJob", { users })
     ]);
   }
 

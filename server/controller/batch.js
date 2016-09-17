@@ -15,6 +15,7 @@ export default class BatchController {
    * Handles extract sent from Hull with optional setting selected segment_id
    */
   handleBatchExtractJob(req) {
+    req.hull.client.logger.info("batch.handleBatchExtractJob", req.payload.body);
     return req.shipApp.extractAgent.handleExtract(req.payload.body, req.payload.chunkSize, (users) => {
       if (req.payload.segmentId) {
         users = users.map(u => {

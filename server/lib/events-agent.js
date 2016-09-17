@@ -2,64 +2,19 @@ import Promise from "bluebird";
 import moment from "moment";
 import _ from "lodash";
 import crypto from "crypto";
-import JSONStream from "JSONStream";
-import BatchStream from "batch-stream";
-import request from "request";
-import tar from "tar-stream";
-import zlib from "zlib";
-import ps from "promise-streams";
-import es from "event-stream";
+import * as helper from "./mailchimp-batch-helper";
 
 /**
  * EventsAgent has methods to query Mailchimp for data relevant
  * for Hull Track API.
- * It exposes two main public methods `runCampaignStrategy`, `runUserStrategy`.
  */
 export default class EventsAgent {
 
-  constructor(mailchimpClient, hull, credentials, queueAgent, batchAgent) {
+  constructor(mailchimpClient, hull, ship) {
     this.client = mailchimpClient;
     this.hull = hull;
-    this.credentials = credentials;
-    this.queueAgent = queueAgent;
-    this.batchAgent = batchAgent;
-  }
-
-  /**
-   * Gets information from campaigns about email activies and prepares
-   * query to create hull extracts for users who have activities in mailchimp.
-   * As a param it takes a callback which is called for every 10000 emails chunkes
-   * with prepared elastic search query.
-   * It decides about the timestamp for `traits_mailchimp/latest_activity_at`.
-   * The query is build by `buildSegmentQuery` method.
-   * @api
-   * @see buildSegmentQuery
-   * @param  {Function} callback
-   * @return {Promise}
-   */
-  runCampaignStrategy() {
-    return this.getTrackableCampaigns()
-      .then(campaigns => {
-        return this.getEmailActivities(campaigns);
-      });
-  }
-
-  /**
-   * Gets information from Mailchimp about member activities for provided e-mail addresses
-   * and triggers Hull.track api endpoint.
-   * @api
-   * @see getMemberActivities
-   * @see trackEvents
-   * @param  {Array} hullUsers
-   * @return {Promise}
-   */
-  runUserStrategy(hullUsers) {
-    const users = hullUsers.map(u => {
-      u.email_address = u.email;
-      return u;
-    });
-    return this.getMemberActivities(users)
-      .then(this.trackEvents.bind(this));
+    this.listId = _.get(ship, "private_settings.mailchimp_list_id");
+    this.listName = _.get(ship, "private_settings.mailchimp_list_name");
   }
 
   /**
@@ -103,19 +58,19 @@ export default class EventsAgent {
    */
   getTrackableCampaigns() {
     this.hull.logger.info("getTrackableCampaigns");
-    const weekAgo = moment().subtract(100, "week");
+    const weekAgo = moment().subtract(1, "week");
 
     return this.client
-    .get("/campaigns")
-    .query({
-      fields: "campaigns.id,campaigns.status,campaigns.title,campaigns.send_time",
-      list_id: this.credentials.mailchimp_list_id,
-      since_send_time: weekAgo.format()
-    })
-    .then(response => {
-      const res = response.body;
-      return res.campaigns.filter(c => ["sent", "sending"].indexOf(c.status) !== -1);
-    });
+      .get("/campaigns")
+      .query({
+        fields: "campaigns.id,campaigns.status,campaigns.title,campaigns.send_time",
+        list_id: this.listId,
+        since_send_time: weekAgo.format()
+      })
+      .then(response => {
+        const res = response.body;
+        return res.campaigns.filter(c => ["sent", "sending"].indexOf(c.status) !== -1);
+      });
   }
 
   /**
@@ -125,10 +80,10 @@ export default class EventsAgent {
    * @param  {Array} campaigns
    * @return {Promise}
    */
-  getEmailActivities(campaigns) {
+  getEmailActivities(campaigns, jobs = []) {
     this.hull.logger.info("getEmailActivities", campaigns);
-    const operations = campaigns.map(c => {
-      const operation_id = this.mailchimpBatchAgent.operationId(["handleEmailsActivitiesJob"], { campaign: c });
+    return campaigns.map(c => {
+      const operation_id = helper.getOperationId(jobs, { campaign: c });
       return {
         operation_id,
         method: "get",
@@ -136,74 +91,48 @@ export default class EventsAgent {
         query: { fields: "emails.email_address,emails.activity" },
       };
     });
-
-    // we forceBatch here, because the response for small number of operation
-    // can be huge and always needs streaming
-    
-    // return this.client.post("/batches").send({ operations })
-    //   .then(response => {
-    //     const { id } = response.body;
-    //     return this.queueAgent.create("handleMailchimpBatchJob", { batchId: id }, { delay: 10000 });
-    //   });
-    //   .then((results) => {
-    //     if (!results.response_body_url) {
-    //       return [];
-    //     }
-    //     return this.handleMailchimpResponse(results)
-    //       .pipe(es.through(function write(data) {
-    //         data.emails.map(r => {
-    //           const campaign = _.find(campaigns, { id: r.campaign_id });
-    //           r.campaign_send_time = campaign.send_time;
-    //           return this.emit("data", r);
-    //         });
-    //       }))
-    //       // the query for extract is send as POST method so it should not be
-    //       // too long
-    //       .pipe(new BatchStream({ size: 4000 }))
-    //       .pipe(ps.map((...args) => {
-    //         try {
-    //           return callback(...args);
-    //         } catch (e) {
-    //           console.error(e);
-    //           throw e;
-    //         }
-    //       }))
-    //       .wait();
-    //   });
   }
 
-  /**
-   * Method to handle Mailchimp batch response as a JSON stream
-   * @param  {String} { response_body_url }
-   * @return {Stream}
-   */
-  // handleMailchimpResponse({ response_body_url }) {
-  //   const extract = tar.extract();
-  //   const decoder = JSONStream.parse();
-  //
-  //   extract.on("entry", (header, stream, callback) => {
-  //     if (header.name.match(/\.json/)) {
-  //       stream.pipe(decoder);
-  //     }
-  //
-  //     stream.on("end", () => {
-  //       callback(); // ready for next entry
-  //     });
-  //
-  //     stream.resume();
-  //   });
-  //
-  //   request(response_body_url)
-  //     .pipe(zlib.createGunzip())
-  //     .pipe(extract);
-  //
-  //   return decoder
-  //     .pipe(es.through(function write(data) {
-  //       data.map(r => {
-  //         return this.emit("data", JSON.parse(r.response));
-  //       });
-  //     }));
-  // }
+  getEmailsToExtract(mailchimpRes) {
+    const chunk = mailchimpRes.reduce((emails, mailchimpData) => {
+      const { response, data } = mailchimpData;
+      const campaignEmails = response.emails.map(e => {
+        e.campaign_send_time = data.campaign.send_time;
+        return e;
+      });
+      emails = _.concat(emails, campaignEmails);
+      return emails;
+    }, []);
+
+    if (_.isEmpty(chunk)) {
+      return null;
+    }
+
+    return chunk.reduce((emails, e) => {
+      const timestamps = e.activity.sort((x, y) => moment(x.timestamp) - moment(y.timestamp));
+      const timestamp = _.get(_.last(timestamps), "timestamp", e.campaign_send_time);
+
+      // if there is already same email queued remove it if its older than
+      // actual or stop if it's not
+      const existingEmail = _.findIndex(emails, ["email_address", e.email_address]);
+      if (existingEmail !== -1) {
+        if (moment(emails[existingEmail].timestamp).isSameOrBefore(timestamp)) {
+          _.pullAt(emails, [existingEmail]);
+        } else {
+          return emails;
+        }
+      }
+
+      this.hull.logger.info("runCampaignStrategy.email", { email_address: e.email_address, timestamp });
+      emails.push({
+        timestamp,
+        email_id: e.email_id,
+        email_address: e.email_address
+      });
+      return emails;
+    }, []);
+  }
+
 
   /**
    * This method downloads from Mailchimp information for members.
@@ -220,41 +149,36 @@ export default class EventsAgent {
    * [{ email_address, id, [[email_id,] "traits_mailchimp/latest_activity_at"] }]
    * @return {Promise}
    */
-  getMemberActivities(emails) {
+  getMemberActivitiesOperations(emails, jobs = []) {
     this.hull.logger.info("getMemberActivities", emails.length);
     const emailIds = emails.map(e => {
-      e.email_id = e.email_id || this.getEmailId(e.email_address);
+      e.email_id = e.email_id || this.getEmailId(e.email);
       return e;
     });
     const queries = _.uniqWith(emailIds.map(e => {
+      const operation_id = helper.getOperationId(jobs, { email: e });
       return {
+        operation_id,
         method: "get",
-        path: `/lists/{list_id}/members/${e.email_id}/activity`,
+        path: `/lists/${this.listId}/members/${e.email_id}/activity`,
       };
     }), _.isEqual);
 
-    return this.client.batch(queries)
-      .then((results) => {
-        const validResults = _.reject(results, (r) => {
-          return (r.status >= 400 && r.status <= 499)
-            || (r.status >= 500 && r.status <= 599);
+    return queries;
+  }
+
+  parseMemberActivities(mailchimpResponse) {
+    return mailchimpResponse.map(({ response, data }) => {
+      response.email_address = data.email.email;
+      response.id = data.email.id;
+
+      if (data.email.id["traits_mailchimp/latest_activity_at"]) {
+        response.activity = response.activity.filter(a => {
+          return moment(a.timestamp).utc().isAfter(data.email["traits_mailchimp/latest_activity_at"]);
         });
-
-        return validResults.map(r => {
-          const emailId = _.find(emailIds, {
-            email_id: r.email_id,
-          });
-          r.email_address = emailId.email_address;
-          r.id = emailId.id;
-
-          if (emailId["traits_mailchimp/latest_activity_at"]) {
-            r.activity = r.activity.filter(a => {
-              return moment(a.timestamp).utc().isAfter(emailId["traits_mailchimp/latest_activity_at"]);
-            });
-          }
-          return r;
-        }).filter(e => e.activity.length > 0);
-      });
+      }
+      return response;
+    }).filter(e => e.activity.length > 0);
   }
 
   getEmailId(email) {
@@ -359,7 +283,7 @@ export default class EventsAgent {
       campaign_name: activity.title || "",
       campaign_id: activity.campaign_id,
       list_id: email.list_id,
-      list_name: this.credentials.mailchimp_list_name,
+      list_name: this.listName,
       // TODO add ip, available here:
       // http://developer.mailchimp.com/documentation/mailchimp/reference/reports/email-activity
       // TODO add email_subject, available here:

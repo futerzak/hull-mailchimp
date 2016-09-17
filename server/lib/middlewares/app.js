@@ -3,7 +3,7 @@ import MailchimpAgent from "../mailchimp-agent";
 import HullAgent from "../hull-agent";
 import ExtractAgent from "../extract-agent";
 import QueueAgent from "../queue/queue-agent";
-// import EventsAgent from "../events-agent";
+import EventsAgent from "../events-agent";
 import MailchimpBatchAgent from "../mailchimp-batch-agent";
 import SegmentsMappingAgent from "../segments-mapping-agent";
 
@@ -23,7 +23,7 @@ export default function ({ queueAdapter }) {
     const mailchimpAgent = new MailchimpAgent(mailchimpClient, req.hull.ship, segmentsMappingAgent, req.hull.client);
     const hullAgent = new HullAgent(req.hull.ship, req.hull.client);
     const mailchimpBatchAgent = new MailchimpBatchAgent(req.hull.client, mailchimpClient, queueAgent);
-    // req.shipApp.eventsAgent = new EventsAgent(req.shipApp.mailchimpClient, req.hull.client, req.hull.ship, req.shipApp.queueAgent, req.shipApp.batchAgent);
+    const eventsAgent = new EventsAgent(mailchimpClient, req.hull.client, req.hull.ship);
 
     req.shipApp = {
       mailchimpClient,
@@ -32,7 +32,8 @@ export default function ({ queueAdapter }) {
       hullAgent,
       queueAgent,
       extractAgent,
-      mailchimpBatchAgent
+      mailchimpBatchAgent,
+      eventsAgent
     };
 
     return next();
