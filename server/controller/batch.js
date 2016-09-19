@@ -15,15 +15,29 @@ export default class BatchController {
    * Handles extract sent from Hull with optional setting selected segment_id
    */
   handleBatchExtractJob(req) {
+    const { extractAgent, segmentsMappingAgent, queueAgent, hullAgent } = req.shipApp;
     req.hull.client.logger.info("batch.handleBatchExtractJob", req.payload.body);
-    return req.shipApp.extractAgent.handleExtract(req.payload.body, req.payload.chunkSize, (users) => {
+
+    return extractAgent.handleExtract(req.payload.body, req.payload.chunkSize, (users) => {
+      // if the extract contains segmentId information apply it to all users
       if (req.payload.segmentId) {
         users = users.map(u => {
           u.segment_ids = _.uniq(_.concat(u.segment_ids || [], [req.payload.segmentId]));
           return u;
         });
       }
-      return req.shipApp.queueAgent.create("sendUsersJob", { users });
+      // apply whitelist filtering
+      users = users.map(u => {
+        // if the user is outside the whitelist, remove it from all segments
+        // and don't add to any new segment
+        if (!hullAgent.userWhitelisted(u)) {
+          u.segment_ids = [];
+          u.remove_segment_ids = segmentsMappingAgent.getSegmentIds();
+        }
+        return u;
+      });
+
+      return queueAgent.create("sendUsersJob", { users });
     });
   }
 
@@ -46,7 +60,9 @@ export default class BatchController {
     const removeFromAudiencesOps = mailchimpAgent.getRemoveFromAudiencesOp(usersToAddOrRemove);
 
     req.hull.client.logger.info("sendUsersJob.ops", {
-      addToListOps, addToAudiencesOps, removeFromAudiencesOps
+      addToListOps: addToListOps.length,
+      addToAudiencesOps: addToAudiencesOps.length,
+      removeFromAudiencesOps: removeFromAudiencesOps.length
     });
 
     const ops = _.concat(addToListOps, addToAudiencesOps, removeFromAudiencesOps);

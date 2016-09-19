@@ -35,8 +35,10 @@ export default class NotifyController {
       const { user, changes = {}, segments = [] } = message;
       const { left = [] } = changes.segments || {};
 
+      // if the user is within the whitelist add it to all segments
+      // if the use is outside the whitelist remove it from all segments
       if (hullAgent.userWhitelisted(user)) {
-        user.segment_ids = user.segment_ids || segments.map(s => s.id);
+        user.segment_ids = _.uniq(_.concat(user.segment_ids || [], segments.map(s => s.id)));
         user.remove_segment_ids = left.map(s => s.id);
       } else {
         user.segment_ids = [];
