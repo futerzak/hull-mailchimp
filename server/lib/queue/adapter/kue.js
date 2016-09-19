@@ -11,12 +11,6 @@ export default class KueAdapter {
   constructor(queue) {
     this.queue = queue;
     this.queue.watchStuckJobs();
-    process.once("SIGTERM", () => {
-      this.queue.shutdown(5000, (err) => {
-        console.log(`Kue shutdown: ${err}`);
-        process.exit(0);
-      });
-    });
   }
 
   /**
@@ -62,5 +56,11 @@ export default class KueAdapter {
         });
     });
     return this;
+  }
+
+  exit() {
+    return Promise.fromCallback((callback) => {
+      this.queue.shutdown(5000, callback);
+    });
   }
 }

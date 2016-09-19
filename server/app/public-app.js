@@ -4,9 +4,9 @@ import { renderFile } from "ejs";
 import bodyParser from "body-parser";
 import { NotifHandler } from "hull";
 
-import oauth from "./lib/oauth-client";
-import QueueAgentMiddleware from "./lib/middlewares/queue-agent";
-import controller from "./controller";
+import oauth from "../lib/oauth-client";
+import QueueAgentMiddleware from "../lib/middlewares/queue-agent";
+import controller from "../controller";
 const { notifyController } = controller;
 
 export default function Server({ queueAdapter, hostSecret }) {
