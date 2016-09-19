@@ -33,6 +33,9 @@ export default class MailchimpBatchAgent {
       .then(response => {
         const { id } = response.body;
         this.hullClient.logger.info("handleMailchimpBatchJob.create", id);
+        // if there is no `operation_id` property set in this batch,
+        // we don't perform next tasks on these data, so we don't queue a handler
+        // here
         if (_.filter(operations, "operation_id").length === 0) {
           return Promise.resolve();
         }
@@ -53,10 +56,14 @@ export default class MailchimpBatchAgent {
       .get(`/batches/${batchId}`)
       .then((response) => {
         const batchInfo = response.body;
-        this.hullClient.logger.info(_.omit(batchInfo, "_links"));
+        this.hullClient.logger.info("mailchimpBatchAgent.handleBatch", _.omit(batchInfo, "_links"));
         if (batchInfo.status !== "finished") {
           attempt++;
-          return this.queueAgent.create("handleMailchimpBatchJob", { batchId, attempt }, { delay: 10000 });
+          return this.queueAgent.create("handleMailchimpBatchJob", {
+            batchId, attempt
+          }, {
+            delay: process.env.MAILCHIMP_BATCH_HANDLER_INTERVAL || 10000
+          });
         }
 
         if (batchInfo.total_operations === 0
@@ -65,7 +72,7 @@ export default class MailchimpBatchAgent {
         }
 
         return this.mailchimpClient.handleResponse(batchInfo)
-          .pipe(new BatchStream({ size: 100 }))
+          .pipe(new BatchStream({ size: process.env.MAILCHIMP_BATCH_HANDLER_SIZE || 100 }))
           .pipe(ps.map((ops) => {
             try {
               const jobsToQueue = helper.groupByJobs(ops);
@@ -81,37 +88,4 @@ export default class MailchimpBatchAgent {
           .wait();
       });
   }
-
-  // /**
-  //  * Method groups returned operations by `nextOperations` property
-  //  * and then queues it for further processing with additional data
-  //  */
-  // handleOperations(ops) {
-  //   const jobsToQueue = _.reduce(ops, (jobs, op) => {
-  //     const operationId = op.operation_id;
-  //     if (operationId) {
-  //       const operationData = JSON.parse(operationId);
-  //       const jobNames = operationData.nextOperations;
-  //       jobNames.map((jobName) => {
-  //         const jobsArray = jobs[jobName] = jobs[jobName] || [];
-  //         const response = _.omit(JSON.parse(op.response), "_links");
-  //         jobsArray.push({
-  //           response,
-  //           operationData: _.omit(operationData, "nextOperations")
-  //         });
-  //       });
-  //     }
-  //     return jobs;
-  //   }, {});
-  //   return Promise.all(_.map(jobsToQueue, (value, key) => {
-  //     return this.queueAgent.create(key, value);
-  //   }));
-  // }
-  //
-  // getOperationId(jobs = [], data = {}) {
-  //   return JSON.stringify({
-  //     jobs,
-  //     data
-  //   });
-  // }
 }
