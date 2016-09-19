@@ -15,31 +15,6 @@ export default class MembersAgent {
     this.listId = _.get(ship, "private_settings.mailchimp_list_id");
   }
 
-  checkBatchQueue() {
-    // count greater that 100 here causes an error
-    // using an offset could be useful here, but it seems that the endpoint
-    // does not sort the batches by time
-    // so the log will present information for 100 batches
-    return this.mailchimpClient
-      .get("/batches")
-      .query({
-        count: 100,
-        fields: "batches.status,total_items"
-      })
-      .then(response => {
-        const res = response.body;
-        const pending = res.batches.filter(b => b.status === "pending");
-        const started = res.batches.filter(b => b.status === "started");
-        const finished = res.batches.filter(b => b.status === "finished");
-        this.hullClient.logger.info("checkBatchQueue", {
-          total: res.total_items,
-          pending: pending.length,
-          started: started.length,
-          finished: finished.length
-        });
-      });
-  }
-
   getEmailHash(email) {
     return !_.isEmpty(email) && crypto.createHash("md5")
       .update(email.toLowerCase())

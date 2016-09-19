@@ -10,8 +10,4 @@ export default class MailchimpBatchController {
 
     return req.shipApp.mailchimpBatchAgent.handleBatch(batchId, attempt);
   }
-
-  checkBatchQueueJob(req) {
-    return req.shipApp.mailchimpAgent.checkBatchQueue();
-  }
 }

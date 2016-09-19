@@ -70,11 +70,6 @@ export default function Server({ queueAdapter, hostSecret }) {
       .then(jobId => res.end(`ok: ${jobId}`));
   });
 
-  app.post("/checkBatchQueue", QueueAgentMiddleware({ queueAdapter }), (req, res) => {
-    req.shipApp.queueAgent.create("checkBatchQueueJob")
-      .then((jobId) => res.end(`ok: ${jobId}`));
-  });
-
   app.get("/manifest.json", (req, res) => {
     res.sendFile(path.resolve(__dirname, "..", "manifest.json"));
   });

@@ -9,7 +9,6 @@ export default function (deps) {
 
   return function QueueRouter(queueApp) {
     queueApp.attach("handleMailchimpBatchJob", mailchimpBatchController.handleMailchimpBatchJob);
-    queueApp.attach("checkBatchQueueJob", mailchimpBatchController.checkBatchQueueJob);
 
     queueApp.attach("handleBatchExtractJob", batchController.handleBatchExtractJob);
     queueApp.attach("sendUsersJob", batchController.sendUsersJob);
