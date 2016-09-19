@@ -12,9 +12,9 @@ const { notifyController } = controller;
 export default function Server({ queueAdapter, hostSecret }) {
   const app = express();
 
-  app.use(express.static(path.resolve(__dirname, "..", "dist")));
-  app.use(express.static(path.resolve(__dirname, "..", "assets")));
-  app.set("views", `${__dirname}/views`);
+  app.use(express.static(path.resolve(__dirname, "..", "..", "dist")));
+  app.use(express.static(path.resolve(__dirname, "..", "..", "assets")));
+  app.set("views", `${__dirname}/../views`);
   app.engine("html", renderFile);
 
   app.post("/notify", QueueAgentMiddleware({ queueAdapter }), NotifHandler({
@@ -71,7 +71,7 @@ export default function Server({ queueAdapter, hostSecret }) {
   });
 
   app.get("/manifest.json", (req, res) => {
-    res.sendFile(path.resolve(__dirname, "..", "manifest.json"));
+    res.sendFile(path.resolve(__dirname, "..", "..", "manifest.json"));
   });
 
   return app;

@@ -27,15 +27,19 @@ export default class BatchController {
         });
       }
       // apply whitelist filtering
-      users = users.map(u => {
+      users = _.filter(users.map(u => {
         // if the user is outside the whitelist, remove it from all segments
         // and don't add to any new segment
         if (!hullAgent.userWhitelisted(u)) {
-          u.segment_ids = [];
-          u.remove_segment_ids = segmentsMappingAgent.getSegmentIds();
+          if (hullAgent.userAdded(u)) {
+            u.segment_ids = [];
+            u.remove_segment_ids = segmentsMappingAgent.getSegmentIds();
+          } else {
+            return null;
+          }
         }
         return u;
-      });
+      }));
 
       return queueAgent.create("sendUsersJob", { users });
     });
@@ -77,6 +81,7 @@ export default class BatchController {
    */
   addToAudiencesJob(req) {
     const operations = req.payload;
+    req.hull.client.logger.info("addToAudiencesJob", operations.length);
     const { mailchimpAgent, mailchimpBatchAgent } = req.shipApp;
     // TODO: check if mailchimp operation was successful
     const usersToAddToAudiences = mailchimpAgent.getUsersFromOperations(operations);
@@ -90,6 +95,7 @@ export default class BatchController {
 
   updateUsersJob(req) {
     const operations = req.payload;
+    req.hull.client.logger.info("updateUsersJob", operations.length);
     return Promise.all(operations.map(({ response, data }) => {
       const traits = req.shipApp.hullAgent.mailchimpFields.reduce((t, path) => {
         const key = _.last(path.split("."));

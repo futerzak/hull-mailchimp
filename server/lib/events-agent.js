@@ -178,7 +178,7 @@ export default class EventsAgent {
         });
       }
       return response;
-    }).filter(e => e.activity.length > 0);
+    }).filter(e => (e.activity || []).length > 0);
   }
 
   getEmailId(email) {

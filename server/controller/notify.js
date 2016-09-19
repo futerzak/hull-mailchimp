@@ -30,23 +30,27 @@ export default class NotifyController {
    */
   userUpdateHandlerJob(req) {
     const { hullAgent, segmentsMappingAgent, queueAgent } = req.shipApp;
-
-    const users = _.map(req.payload.messages, (message) => {
+    req.hull.client.logger.info("userUpdateHandlerJob", req.payload.messages.length);
+    const users = _.filter(_.map(req.payload.messages, (message) => {
       const { user, changes = {}, segments = [] } = message;
       const { left = [] } = changes.segments || {};
-
-      // if the user is within the whitelist add it to all segments
-      // if the use is outside the whitelist remove it from all segments
+      user.segment_ids = _.uniq(_.concat(user.segment_ids || [], segments.map(s => s.id)));
+      // if the user is within the whitelist add it to all segments he's in
+      // if the use is outside the whitelist and was already saved to mailchimp
+      // remove it from all segments, if he is outside the whitelist
+      // and wasn't saved remove it from the batch
       if (hullAgent.userWhitelisted(user)) {
-        user.segment_ids = _.uniq(_.concat(user.segment_ids || [], segments.map(s => s.id)));
         user.remove_segment_ids = left.map(s => s.id);
       } else {
-        user.segment_ids = [];
-        user.remove_segment_ids = segmentsMappingAgent.getSegmentIds();
+        if (hullAgent.userAdded(user)) {
+          user.segment_ids = [];
+          user.remove_segment_ids = segmentsMappingAgent.getSegmentIds();
+        } else {
+          return false;
+        }
       }
-
       return user;
-    });
+    }));
 
     return Promise.all([
       queueAgent.create("sendUsersJob", { users }),

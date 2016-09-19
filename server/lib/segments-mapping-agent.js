@@ -25,7 +25,7 @@ export default class SegmentsAgent {
     if (_.isEqual(this.originalMapping, this.mapping)) {
       return Promise.resolve();
     }
-
+    this.ship.private_settings[this.settingKey] = this.mapping;
     return this.hullClient.put(this.ship.id, { private_settings: this.ship.private_settings });
   }
 

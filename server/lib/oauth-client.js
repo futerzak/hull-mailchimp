@@ -3,10 +3,9 @@ import { Router } from "express";
 import bodyParser from "body-parser";
 import oauth2Factory from "simple-oauth2";
 import rp from "request-promise";
-import Hull from "hull";
 import TokenMiddleware from "../lib/middlewares/token";
 
-// import fetchShip from "./middlewares/fetch-ship";
+import fetchShip from "./middlewares/fetch-ship";
 
 export default function oauth({
   name, clientID, clientSecret,
@@ -174,7 +173,7 @@ export default function oauth({
   const router = Router();
   router.use(bodyParser.json());
   router.use(TokenMiddleware);
-  router.use(Hull.Middleware({ hostSecret }));
+  router.use(fetchShip({ hostSecret }));
   router.get(homeUrl, renderHome);
   router.get(callbackUrl, renderRedirect);
   router.get(selectUrl, renderSelect);
