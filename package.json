@@ -4,10 +4,14 @@
   "description": "Hull Mailchimp integration",
   "main": "index.js",
   "scripts": {
+    "build": "npm run clean && npm run build:server",
+    "build:server": "babel server -d build",
     "start": "node  --optimize_for_size --max_old_space_size=460 --gc_interval=100 ./bin/start",
     "start:dev": "babel-watch -L main.js",
     "test": "NODE_ENV=test mocha mocha-babel.js -R spec ./tests",
-    "test:lint": "eslint server"
+    "test:lint": "eslint server",
+    "clean": "rm -rf build",
+    "postinstall": "npm run build"
   },
   "engines": {
     "node": "5.x",
@@ -30,6 +34,7 @@
   "homepage": "https://github.com/hull-ships/hull-maichimp",
   "dependencies": {
     "JSONStream": "^1.1.1",
+    "babel-cli": "^6.14.0",
     "babel-core": "^6.4.5",
     "babel-preset-es2015": "^6.3.13",
     "babel-preset-stage-0": "^6.3.13",
