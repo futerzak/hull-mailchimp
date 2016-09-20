@@ -14,7 +14,7 @@ export default function Server({ queueAdapter, hostSecret }) {
 
   app.use(express.static(path.resolve(__dirname, "..", "..", "dist")));
   app.use(express.static(path.resolve(__dirname, "..", "..", "assets")));
-  app.set("views", `${__dirname}/../views`);
+  app.set("views", `${__dirname}/../../views`);
   app.engine("html", renderFile);
 
   app.post("/notify", QueueAgentMiddleware({ queueAdapter }), NotifHandler({
