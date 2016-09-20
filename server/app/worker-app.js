@@ -10,7 +10,10 @@ export default class WorkerApp {
     this.hostSecret = hostSecret;
     this.queueAdapter = queueAdapter;
     this.handlers = {};
-    this.supply = new Supply();
+    this.supply = new Supply()
+      .use(TokenMiddleware)
+      .use(Hull.Middleware({ hostSecret: this.hostSecret }))
+      .use(AppMiddleware({ queueAdapter: this.queueAdapter }));
   }
 
   attach(jobName, worker) {
@@ -34,12 +37,9 @@ export default class WorkerApp {
     if (!this.handlers[jobName]) {
       return Promise.reject(new Error(`No such job registered ${jobName}`));
     }
-
+    console.log("!!!!!");
     return Promise.fromCallback((callback) => {
       this.supply
-        .use(TokenMiddleware)
-        .use(Hull.Middleware({ hostSecret: this.hostSecret }))
-        .use(AppMiddleware({ queueAdapter: this.queueAdapter }))
         .each(req, res, callback);
     })
     .then(() => {
