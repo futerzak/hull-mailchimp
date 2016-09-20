@@ -5,7 +5,7 @@ export default class BatchController {
     const segmentId = req.query.segment_id || null;
     return req.shipApp.queueAgent.create("handleBatchExtractJob", {
       body: req.body,
-      chunkSize: 100,
+      chunkSize: process.env.MAILCHIMP_BATCH_HANDLER_SIZE || 100,
       segmentId
     })
     .then(() => res.end("ok"));

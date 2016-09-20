@@ -25,15 +25,8 @@ export default class BatchSyncHandler {
     this.messages = [];
     this.options = options;
 
-    this.status = "idle";
     this.flushLater = _.throttle(this.flush.bind(this), this.options.throttle);
-    this.stats = { flush: 0, add: 0, flushing: 0, success: 0, error: 0, pending: 0 };
-    setInterval(this.debugStats.bind(this), 10000);
     return this;
-  }
-
-  debugStats() {
-    this.hull.client.logger.info("batch.stats", this.stats);
   }
 
   setCallback(callback) {
@@ -41,15 +34,9 @@ export default class BatchSyncHandler {
     return this;
   }
 
-  metric(metric, value = 1) {
-    this.hull.client.logger.info("metric", `bulk.${metric}`, value);
-  }
-
   add(message) {
-    this.stats.add += 1;
-    this.stats.pending += 1;
     this.messages.push(message);
-
+    this.hull.client.logger.info("batchSyncHanlder.added", this.messages.length);
     const { maxSize } = this.options;
     if (this.messages.length >= maxSize) {
       this.flush();
@@ -60,23 +47,15 @@ export default class BatchSyncHandler {
   }
 
   flush() {
-    this.metric("flush");
-    this.stats.flush += 1;
-    this.stats.flushing += 1;
     const messages = this.messages;
+    this.hull.client.logger.info("batchSyncHanlder.flush", messages.length);
     this.messages = [];
-    this.stats.pending -= messages.length;
     return this.callback(messages)
       .then(() => {
-        this.metric("flush.success");
-        this.stats.success += 1;
-        this.stats.flushing -= 1;
+        this.hull.client.logger.info("batchSyncHanlder.flush.sucess");
       }, (err) => {
         console.error(err);
         this.hull.client.logger.error("flush.error", err);
-        this.metric("flush.error");
-        this.stats.error += 1;
-        this.stats.flushing -= 1;
       });
   }
 }
