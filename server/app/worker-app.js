@@ -37,7 +37,6 @@ export default class WorkerApp {
     if (!this.handlers[jobName]) {
       return Promise.reject(new Error(`No such job registered ${jobName}`));
     }
-    console.log("!!!!!");
     return Promise.fromCallback((callback) => {
       this.supply
         .each(req, res, callback);
