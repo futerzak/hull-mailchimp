@@ -59,10 +59,18 @@ export default class NotifyController {
       return user;
     }));
 
-    return Promise.all([
-      queueAgent.create("sendUsersJob", { users }),
-      queueAgent.create("trackUsersJob", { users })
-    ]);
+    const usersToTrack = users.filter(u => {
+      return hullAgent.userAdded(u) && hullAgent.userWhitelisted(u);
+    });
+
+    const promises = [];
+    if (users.length > 0) {
+      promises.push(queueAgent.create("sendUsersJob", { users }));
+    }
+    if (usersToTrack.length > 0) {
+      promises.push(queueAgent.create("trackUsersJob", { users: usersToTrack }));
+    }
+    return Promise.all(promises);
   }
 
   /**
