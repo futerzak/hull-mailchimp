@@ -43,6 +43,9 @@ export default class WorkerApp {
         this.supply
           .each(req, res, (err) => {
             this.transactionAgent.endTransaction();
+            if (err) {
+              console.error(err);
+            }
             callback(err);
           });
       });
