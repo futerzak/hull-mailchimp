@@ -3,7 +3,7 @@ import { Middleware } from "hull";
 export default function ({ hostSecret }) {
   return function fetchShip(req, res, next) {
     req.hull = req.hull || { timings: {} };
-    if (req.body.ship && req.body.ship.private_settings) {
+    if (req.body && req.body.ship && req.body.ship.private_settings) {
       req.hull.ship = req.body.ship;
     }
 

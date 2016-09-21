@@ -1,9 +1,9 @@
 import Supply from "supply";
 import Promise from "bluebird";
-import Hull from "hull";
 
 import AppMiddleware from "../lib/middlewares/app";
 import TokenMiddleware from "../lib/middlewares/token";
+import fetchShip from "../lib/middlewares/fetch-ship";
 
 export default class WorkerApp {
   constructor({ queueAdapter, hostSecret }) {
@@ -12,7 +12,7 @@ export default class WorkerApp {
     this.handlers = {};
     this.supply = new Supply()
       .use(TokenMiddleware)
-      .use(Hull.Middleware({ hostSecret: this.hostSecret }))
+      .use(fetchShip({ hostSecret: this.hostSecret }))
       .use(AppMiddleware({ queueAdapter: this.queueAdapter }));
   }
 

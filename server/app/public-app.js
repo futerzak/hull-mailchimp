@@ -7,7 +7,7 @@ import { NotifHandler } from "hull";
 import oauth from "../lib/oauth-client";
 import QueueAgentMiddleware from "../lib/middlewares/queue-agent";
 import controller from "../controller";
-const { notifyController } = controller;
+const { notifyController, batchController } = controller;
 
 export default function Server({ queueAdapter, hostSecret }) {
   const app = express();
@@ -28,15 +28,7 @@ export default function Server({ queueAdapter, hostSecret }) {
     }
   }));
 
-  app.post("/batch", bodyParser.json(), QueueAgentMiddleware({ queueAdapter }), (req, res) => {
-    const segmentId = req.query.segment_id || null;
-    return req.shipApp.queueAgent.create("handleBatchExtractJob", {
-      body: req.body,
-      chunkSize: 100,
-      segmentId
-    })
-    .then(jobId => res.end(`ok: ${jobId}`));
-  });
+  app.post("/batch", bodyParser.json(), QueueAgentMiddleware({ queueAdapter }), batchController.handleBatchExtractAction);
 
   app.post("/track", bodyParser.json(), QueueAgentMiddleware({ queueAdapter }), (req, res) => {
     return req.shipApp.queueAgent.create("trackJob", {
