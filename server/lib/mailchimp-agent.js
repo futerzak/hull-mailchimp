@@ -15,6 +15,13 @@ export default class MembersAgent {
     this.listId = _.get(ship, "private_settings.mailchimp_list_id");
   }
 
+  isShipConfigured() {
+    const apiKey = _.get(this.ship, "private_settings.api_key");
+    const domain = _.get(this.ship, "private_settings.domain");
+    const listId = _.get(this.ship, "private_settings.mailchimp_list_id");
+    return !_.isEmpty(domain) && !_.isEmpty(apiKey) && !_.isEmpty(listId);
+  }
+
   getEmailHash(email) {
     return !_.isEmpty(email) && crypto.createHash("md5")
       .update(email.toLowerCase())
@@ -28,6 +35,10 @@ export default class MembersAgent {
         user: _.pick(user, ["id", "email", "segment_ids"]),
         path: `/lists/${this.listId}/members/${hash}`
       });
+      // TODO: investigate on custom merge fields strategies
+      // type check, empty fields, fields that doesn't exist?
+      // change the check if the users was already synced (update the traits)
+      // sync from hull -> mailchimp
       return {
         operation_id,
         method: "PUT",

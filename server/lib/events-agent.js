@@ -37,6 +37,8 @@ export default class EventsAgent {
       }
 
       // eslint-disable-next-line object-curly-spacing, quote-props, key-spacing, comma-spacing
+      // TODO: newrelic instrumentation (how much jobs running per org, how long they take, for everything)
+      // simplify it - use the last_sync property in ship settings
       return {"and":{"filters":[{"terms":{"email.exact":[f.email_address]}},{"or":{"filters":[{"range":{"traits_mailchimp/latest_activity_at":{"lt":time.utc().format()}}},{"missing":{"field":"traits_mailchimp/latest_activity_at"}}]}}]}};
     });
 

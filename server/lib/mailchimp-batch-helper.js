@@ -17,11 +17,17 @@ export function groupByJobs(ops) {
   const jobsToQueue = _.reduce(ops, (jobs, op) => {
     const operationId = op.operation_id;
     if (operationId) {
-      const operationData = JSON.parse(operationId);
+      let operationData = {};
+      try {
+         operationData = JSON.parse(operationId);
+      } catch (e) {}
       const jobNames = _.get(operationData, "jobs", []);
       jobNames.map((jobName) => {
         const jobsArray = jobs[jobName] = jobs[jobName] || [];
-        const response = _.omit(JSON.parse(op.response), "_links");
+        let response = {}
+        try {
+          response = _.omit(JSON.parse(op.response), "_links");
+        } catch (e) {}
         return jobsArray.push({
           response,
           data: _.get(operationData, "data", {})

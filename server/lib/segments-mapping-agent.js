@@ -36,6 +36,23 @@ export default class SegmentsAgent {
     return _.keys(this.mapping);
   }
 
+  getMailchimpSegments() {
+    if (this._segmentsRes) {
+      return Promise.resolve(this._segmentsRes);
+    }
+    const listId = this.listId;
+    return this.mailchimpClient
+      .get(`/lists/${listId}/segments`)
+      .query({
+        type: "static",
+        count: 100
+      })
+      .then(res => {
+        this._segmentsRes = res;
+        return res;
+      });
+  }
+
   /**
    * If provided segment is not saved to mapping, it is created in Mailchimp
    * and saved to the mapping.
@@ -44,20 +61,33 @@ export default class SegmentsAgent {
    */
   createSegment(segment) {
     const listId = this.listId;
-    if (_.get(this.mapping, segment.id)) {
-      return Promise.resolve();
-    }
-
-    return this.mailchimpClient
-      .post(`/lists/${listId}/segments`)
-      .send({
-        name: segment.name,
-        static_segment: []
-      })
-      .then((res) => {
-        this.mapping[segment.id] = res.body.id;
+    return (() => {
+      if (_.get(this.mapping, segment.id)) {
+        return Promise.resolve(_.get(this.mapping, segment.id));
+      }
+      return this.getMailchimpSegments()
+        .then((res) => {
+          const { segments } = res.body;
+          const existingMailchimpSegment = _.find(segments, { name: segment.name });
+          return _.get(existingMailchimpSegment, "id");
+        });
+    })()
+    .then((existingMailchimpSegmentId) => {
+      if (existingMailchimpSegmentId) {
+        this.mapping[segment.id] = existingMailchimpSegmentId;
         return Promise.resolve();
-      });
+      }
+      return this.mailchimpClient
+        .post(`/lists/${listId}/segments`)
+        .send({
+          name: segment.name,
+          static_segment: []
+        })
+        .then((res) => {
+          this.mapping[segment.id] = res.body.id;
+          return Promise.resolve();
+        });
+    });
   }
 
   /**
@@ -106,11 +136,11 @@ export default class SegmentsAgent {
 
     return Promise.map(newSegments, segment => {
       return this.createSegment(segment);
-    }, { concurrency: 5 })
+    }, { concurrency: 1 })
     .then(() => {
       return Promise.map(oldSegments, segment => {
         return this.deleteSegment(segment);
-      }, { concurrency: 5 });
+      }, { concurrency: 3 });
     })
     .then(this.updateMapping.bind(this));
   }

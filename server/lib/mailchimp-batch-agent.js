@@ -40,7 +40,7 @@ export default class MailchimpBatchAgent {
           return Promise.resolve();
         }
 
-        return this.queueAgent.create("handleMailchimpBatchJob", { batchId: id }, { delay: 10000 });
+        return this.queueAgent.create("handleMailchimpBatchJob", { batchId: id }, { delay: process.env.MAILCHIMP_BATCH_HANDLER_INTERVAL || 10000 });
       })
       .catch(err => {
         return this.hullClient.logger.error("mailchimpBatchAgent.create.error", err);

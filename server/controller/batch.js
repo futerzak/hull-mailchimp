@@ -2,20 +2,25 @@ import _ from "lodash";
 
 export default class BatchController {
   handleBatchExtractAction(req, res) {
+    res.end("ok");
     const segmentId = req.query.segment_id || null;
-    return req.shipApp.queueAgent.create("handleBatchExtractJob", {
+    req.shipApp.queueAgent.create("handleBatchExtractJob", {
       body: req.body,
       chunkSize: process.env.MAILCHIMP_BATCH_HANDLER_SIZE || 100,
       segmentId
-    })
-    .then(() => res.end("ok"));
+    });
   }
 
   /**
    * Handles extract sent from Hull with optional setting selected segment_id
    */
   handleBatchExtractJob(req) {
-    const { extractAgent, segmentsMappingAgent, queueAgent, hullAgent } = req.shipApp;
+    const { extractAgent, segmentsMappingAgent, queueAgent, hullAgent, mailchimpAgent } = req.shipApp;
+    if (!mailchimpAgent.isShipConfigured()) {
+      req.hull.client.logger.error("ship not configured");
+      return Promise.resolve();
+    }
+
     req.hull.client.logger.info("batch.handleBatchExtractJob", req.payload.body);
 
     return extractAgent.handleExtract(req.payload.body, req.payload.chunkSize, (users) => {
@@ -100,7 +105,7 @@ export default class BatchController {
       const traits = req.shipApp.hullAgent.mailchimpFields.reduce((t, path) => {
         const key = _.last(path.split("."));
         const value = _.get(response, path);
-        if (!_.isEmpty(value)) {
+        if (!_.isNil(value)) {
           t[key] = value;
         }
         return t;

@@ -36,16 +36,16 @@ export default function Server({ queueAdapter, hostSecret, hullMiddleware }) {
   app.post("/batch", bodyParser.json(), QueueAgentMiddleware({ queueAdapter }), batchController.handleBatchExtractAction);
 
   app.post("/track", bodyParser.json(), QueueAgentMiddleware({ queueAdapter }), (req, res) => {
+    res.end("ok");
     return req.shipApp.queueAgent.create("trackJob", {
       body: req.body,
       chunkSize: 100
-    })
-    .then(jobId => res.end(`ok: ${jobId}`));
+    });
   });
 
   app.post("/sync", QueueAgentMiddleware({ queueAdapter }), (req, res) => {
-    return req.shipApp.queueAgent.create("syncJob")
-      .then(jobId => res.end(`ok: ${jobId}`));
+    res.end("ok");
+    return req.shipApp.queueAgent.create("syncJob");
   });
 
   app.use("/auth", oauth({
@@ -64,8 +64,8 @@ export default function Server({ queueAdapter, hostSecret, hullMiddleware }) {
   }));
 
   app.post("/requestTrack", QueueAgentMiddleware({ queueAdapter }), (req, res) => {
-    return req.shipApp.queueAgent.create("requestTrackJob")
-      .then(jobId => res.end(`ok: ${jobId}`));
+    res.end("ok");
+    return req.shipApp.queueAgent.create("requestTrackJob");
   });
 
   app.get("/manifest.json", (req, res) => {

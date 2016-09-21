@@ -19,14 +19,8 @@ export default class SyncController {
         return segmentsMappingAgent.syncSegments(segments);
       })
       .then(() => {
-        const segmentIds = req.hull.ship.private_settings.synchronized_segments || [];
         const fields = req.shipApp.hullAgent.getExtractFields();
-        if (segmentIds.length === 0) {
-          return req.shipApp.extractAgent.requestExtract({ fields });
-        }
-        return Promise.map(segmentIds, segmentId => {
-          return req.shipApp.extractAgent.requestExtract({ segment: { id: segmentId }, fields });
-        });
+        return req.shipApp.extractAgent.requestExtract({ fields });
       });
   }
 }

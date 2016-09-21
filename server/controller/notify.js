@@ -36,7 +36,13 @@ export default class NotifyController {
    * Handles events of user
    */
   userUpdateHandlerJob(req) {
-    const { hullAgent, segmentsMappingAgent, queueAgent } = req.shipApp;
+    const { hullAgent, segmentsMappingAgent, queueAgent, mailchimpAgent } = req.shipApp;
+
+    if (!mailchimpAgent.isShipConfigured()) {
+      req.hull.client.logger.error("ship not configured");
+      return Promise.resolve();
+    }
+
     req.hull.client.logger.info("userUpdateHandlerJob", req.payload.messages.length);
     const users = _.filter(_.map(req.payload.messages, (message) => {
       const { user, changes = {}, segments = [] } = message;
@@ -83,10 +89,16 @@ export default class NotifyController {
 
   segmentUpdateHandlerJob(req) {
     const { segment } = req.payload;
-    const { segmentsMappingAgent, extractAgent, hullAgent } = req.shipApp;
+    const { segmentsMappingAgent, extractAgent, hullAgent, mailchimpAgent } = req.shipApp;
 
-    return segmentsMappingAgent.createSegment(segment)
-      .then(segmentsMappingAgent.updateMapping.bind(segmentsMappingAgent))
+    if (!mailchimpAgent.isShipConfigured()) {
+      req.hull.client.logger.error("ship not configured");
+      return Promise.resolve();
+    }
+
+    return segmentsMappingAgent.deleteSegment(segment)
+      .then(() => segmentsMappingAgent.createSegment(segment))
+      .then(() => segmentsMappingAgent.updateMapping())
       .then(() => {
         return extractAgent.requestExtract({ segment, fields: hullAgent.getExtractFields() });
       });
@@ -101,7 +113,11 @@ export default class NotifyController {
    */
   segmentDeleteHandlerJob(req) {
     const { segment } = req.payload;
-    const { segmentsMappingAgent } = req.shipApp;
+    const { segmentsMappingAgent, mailchimpAgent } = req.shipApp;
+    if (!mailchimpAgent.isShipConfigured()) {
+      req.hull.client.logger.error("ship not configured");
+      return Promise.resolve();
+    }
     return segmentsMappingAgent.deleteSegment(segment)
       .then(segmentsMappingAgent.updateMapping.bind(segmentsMappingAgent));
   }
@@ -110,7 +126,11 @@ export default class NotifyController {
    * Makes sure that all existing Hull segments have mapped Mailchimp static segment
    */
   shipUpdateHandlerJob(req) {
-    const { segmentsMappingAgent } = req.shipApp;
+    const { segmentsMappingAgent, mailchimpAgent } = req.shipApp;
+    if (!mailchimpAgent.isShipConfigured()) {
+      req.hull.client.logger.error("ship not configured");
+      return Promise.resolve();
+    }
     return req.shipApp.hullAgent.getSegments()
       .then(segments => {
         return segmentsMappingAgent.syncSegments(segments)

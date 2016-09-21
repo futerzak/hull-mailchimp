@@ -16,7 +16,12 @@ export default class TrackController {
    */
   requestTrackJob(req) {
     const client = req.hull.client;
-    const { eventsAgent, mailchimpBatchAgent } = req.shipApp;
+    const { eventsAgent, mailchimpBatchAgent, mailchimpAgent } = req.shipApp;
+
+    if (!mailchimpAgent.isShipConfigured()) {
+      req.hull.client.logger.error("ship not configured");
+      return Promise.resolve();
+    }
 
     client.logger.info("request.track.request", req.payload);
 
