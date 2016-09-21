@@ -5,12 +5,11 @@ import oauth2Factory from "simple-oauth2";
 import rp from "request-promise";
 import TokenMiddleware from "../lib/middlewares/token";
 
-import fetchShip from "./middlewares/fetch-ship";
-
 export default function oauth({
   name, clientID, clientSecret,
   callbackUrl, homeUrl, selectUrl, syncUrl,
-  site, tokenPath, authorizationPath, hostSecret
+  site, tokenPath, authorizationPath,
+  hullMiddleware
   }) {
   const oauth2 = oauth2Factory({
     name, clientID, clientSecret,
@@ -172,8 +171,18 @@ export default function oauth({
 
   const router = Router();
   router.use(bodyParser.json());
+  router.use(function clearShipCache(req, res, next) {
+    // the admin dashboard needs fresh information about
+    // ship settings to decide which pane to show.
+    // following workaround makes hull client middleware to force
+    // ship settings refresh.
+    req.hull = req.hull || {};
+    req.hull.message = req.hull.message || {};
+    req.hull.message.Subject = "ship:update";
+    next();
+  });
   router.use(TokenMiddleware);
-  router.use(fetchShip({ hostSecret }));
+  router.use(hullMiddleware);
   router.get(homeUrl, renderHome);
   router.get(callbackUrl, renderRedirect);
   router.get(selectUrl, renderSelect);

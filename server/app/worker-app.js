@@ -3,16 +3,15 @@ import Promise from "bluebird";
 
 import AppMiddleware from "../lib/middlewares/app";
 import TokenMiddleware from "../lib/middlewares/token";
-import fetchShip from "../lib/middlewares/fetch-ship";
 
 export default class WorkerApp {
-  constructor({ queueAdapter, hostSecret }) {
+  constructor({ queueAdapter, hostSecret, hullMiddleware }) {
     this.hostSecret = hostSecret;
     this.queueAdapter = queueAdapter;
     this.handlers = {};
     this.supply = new Supply()
       .use(TokenMiddleware)
-      .use(fetchShip({ hostSecret: this.hostSecret }))
+      .use(hullMiddleware)
       .use(AppMiddleware({ queueAdapter: this.queueAdapter }));
   }
 

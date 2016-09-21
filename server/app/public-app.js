@@ -9,7 +9,7 @@ import QueueAgentMiddleware from "../lib/middlewares/queue-agent";
 import controller from "../controller";
 const { notifyController, batchController } = controller;
 
-export default function Server({ queueAdapter, hostSecret }) {
+export default function Server({ queueAdapter, hostSecret, hullMiddleware }) {
   const app = express();
 
   app.use(express.static(path.resolve(__dirname, "..", "..", "dist")));
@@ -17,6 +17,11 @@ export default function Server({ queueAdapter, hostSecret }) {
   app.set("views", `${__dirname}/../../views`);
   app.engine("html", renderFile);
 
+  // FIXME: to minimize the amount of ship settings calls we need to
+  // share the ship cache in hull client middleware.
+  // Right now we share the middleware between WorkerApp and admin dashboard router,
+  // which is enough right now since every change in settings is done via admin dashboard.
+  // The segment mapping settings is modified in local cache.
   app.post("/notify", QueueAgentMiddleware({ queueAdapter }), NotifHandler({
     hostSecret,
     groupTraits: false,
@@ -54,7 +59,8 @@ export default function Server({ queueAdapter, hostSecret }) {
     site: "https://login.mailchimp.com",
     tokenPath: "/oauth2/token",
     authorizationPath: "/oauth2/authorize",
-    hostSecret
+    hostSecret,
+    hullMiddleware
   }));
 
   app.post("/requestTrack", QueueAgentMiddleware({ queueAdapter }), (req, res) => {

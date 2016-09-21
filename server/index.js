@@ -1,5 +1,6 @@
 import kue from "kue";
 import Promise from "bluebird";
+import Hull from "hull";
 
 import KueAdapter from "./lib/queue/adapter/kue";
 import BatchSyncHandler from "./lib/batch-sync-handler";
@@ -9,11 +10,26 @@ import WorkerApp from "./app/worker-app";
 import PublicApp from "./app/public-app";
 
 export function Server({ hostSecret }) {
+  /**
+   * We need shared instance of Hull client middleware
+   * because in its factory there is a caching object
+   * which we need to share between PublicApp and WorkerApp.
+   * Right now the refresh of ship settings is done in oauth client.
+   * Not on the ship_update event, since the notifHandler has got separate
+   * instance.
+   * @type {Object}
+   */
+  const hullMiddleware = Hull.Middleware({
+    hostSecret,
+    useCache: true,
+    fetchShip: true
+  });
+
   const queueAdapter = new KueAdapter(kue.createQueue({
     redis: process.env.REDIS_URL
   }));
 
-  new WorkerApp({ queueAdapter, hostSecret })
+  new WorkerApp({ queueAdapter, hostSecret, hullMiddleware })
     .use(WorkerRouter(controllers))
     .process();
 
@@ -34,5 +50,5 @@ export function Server({ hostSecret }) {
   process.on("SIGINT", handleExit);
   process.on("SIGTERM", handleExit);
 
-  return PublicApp({ queueAdapter, hostSecret });
+  return PublicApp({ queueAdapter, hostSecret, hullMiddleware });
 }
