@@ -11,12 +11,6 @@ export default class KueAdapter {
   constructor(queue) {
     this.queue = queue;
     this.queue.watchStuckJobs();
-    process.once("SIGTERM", () => {
-      this.queue.shutdown(5000, (err) => {
-        console.log(`Kue shutdown: ${err}`);
-        process.exit(0);
-      });
-    });
   }
 
   /**
@@ -24,13 +18,23 @@ export default class KueAdapter {
    * @param {Object} jobPayload
    * @return {Promise}
    */
-  create(jobName, jobPayload, ttl = 0) {
+  create(jobName, jobPayload, { ttl = 0, delay = null } = {}) {
     return Promise.fromCallback((callback) => {
-      return this.queue.create(jobName, jobPayload)
-        .ttl(ttl)
+      const job = this.queue.create(jobName, jobPayload)
         .attempts(3)
-        .removeOnComplete(true)
-        .save(callback);
+        .removeOnComplete(true);
+
+      if (ttl) {
+        job.ttl(ttl);
+      }
+
+      if (delay) {
+        job.delay(delay);
+      }
+
+      return job.save((err) => {
+        callback(err, job.id);
+      });
     });
   }
 
@@ -52,5 +56,11 @@ export default class KueAdapter {
         });
     });
     return this;
+  }
+
+  exit() {
+    return Promise.fromCallback((callback) => {
+      this.queue.shutdown(5000, callback);
+    });
   }
 }

@@ -5,5 +5,9 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
   require("newrelic"); // eslint-disable-line global-require
 }
 
-require("babel-register");
-require("../main.js");
+const Server = require("../build").Server;
+const PORT = process.env.PORT || 8082;
+console.warn(`Starting on PORT ${PORT}`);
+Server({
+  hostSecret: process.env.SECRET || "shhuuut"
+}).listen(PORT);
