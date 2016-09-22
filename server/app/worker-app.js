@@ -1,16 +1,15 @@
 import Supply from "supply";
 import Promise from "bluebird";
 
-// import TransactionAgent from "../lib/transaction-agent";
 import AppMiddleware from "../lib/middlewares/app";
 import TokenMiddleware from "../lib/middlewares/token";
 
 export default class WorkerApp {
-  constructor({ queueAdapter, hostSecret, hullMiddleware }) {
+  constructor({ queueAdapter, hostSecret, hullMiddleware, instrumentationAgent }) {
     this.hostSecret = hostSecret;
     this.queueAdapter = queueAdapter;
     this.handlers = {};
-    // this.transactionAgent = new TransactionAgent;
+    this.instrumentationAgent = instrumentationAgent;
     this.supply = new Supply()
       .use(TokenMiddleware)
       .use(hullMiddleware)
@@ -39,19 +38,28 @@ export default class WorkerApp {
       return Promise.reject(new Error(`No such job registered ${jobName}`));
     }
     return Promise.fromCallback((callback) => {
-      // this.transactionAgent.startTransaction(jobName, () => {
-        this.supply
-          .each(req, res, (err) => {
-            // this.transactionAgent.endTransaction();
-            if (err) {
-              console.error(err);
-            }
+      this.instrumentationAgent.startTransaction(jobName, () => {
+        this.runMiddleware(req, res)
+          .then(() => {
+            return this.handlers[jobName].call(job, req, res);
+          })
+          .then((jobRes) => {
+            callback(null, jobRes);
+          }, (err) => {
+            this.instrumentationAgent.catchError(err, { job_id: job.id });
             callback(err);
+          })
+          .finally(() => {
+            this.instrumentationAgent.endTransaction();
           });
-      // });
-    })
-    .then(() => {
-      return this.handlers[jobName].call(job, req, res);
+      });
+    });
+  }
+
+  runMiddleware(req, res) {
+    return Promise.fromCallback((callback) => {
+      this.supply
+        .each(req, res, callback);
     });
   }
 

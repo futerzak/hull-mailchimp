@@ -8,6 +8,7 @@ import controllers from "./controller";
 import WorkerRouter from "./router/worker-router";
 import WorkerApp from "./app/worker-app";
 import PublicApp from "./app/public-app";
+import InstrumentationAgent from "./lib/instrumentation-agent";
 
 export function Server({ hostSecret }) {
   /**
@@ -30,7 +31,9 @@ export function Server({ hostSecret }) {
     redis: process.env.REDIS_URL
   }));
 
-  new WorkerApp({ queueAdapter, hostSecret, hullMiddleware })
+  const instrumentationAgent = new InstrumentationAgent();
+
+  new WorkerApp({ queueAdapter, hostSecret, hullMiddleware, instrumentationAgent })
     .use(WorkerRouter(controllers))
     .process();
 
@@ -51,5 +54,5 @@ export function Server({ hostSecret }) {
   process.on("SIGINT", handleExit);
   process.on("SIGTERM", handleExit);
 
-  return PublicApp({ queueAdapter, hostSecret, hullMiddleware });
+  return PublicApp({ queueAdapter, hostSecret, hullMiddleware, instrumentationAgent });
 }

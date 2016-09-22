@@ -19,15 +19,15 @@ export function groupByJobs(ops) {
     if (operationId) {
       let operationData = {};
       try {
-         operationData = JSON.parse(operationId);
-      } catch (e) {}
+        operationData = JSON.parse(operationId);
+      } catch (e) {} // eslint-disable-line no-empty
       const jobNames = _.get(operationData, "jobs", []);
       jobNames.map((jobName) => {
         const jobsArray = jobs[jobName] = jobs[jobName] || [];
-        let response = {}
+        let response = {};
         try {
           response = _.omit(JSON.parse(op.response), "_links");
-        } catch (e) {}
+        } catch (e) {} // eslint-disable-line no-empty
         return jobsArray.push({
           response,
           data: _.get(operationData, "data", {})
