@@ -26,6 +26,7 @@ export function Server({ hostSecret }) {
   });
 
   const queueAdapter = new KueAdapter(kue.createQueue({
+    prefix: process.env.KUE_PREFIX || "hull-mailchimp",
     redis: process.env.REDIS_URL
   }));
 
