@@ -58,6 +58,7 @@
     "newrelic": "^1.28.3",
     "object-mapper": "^3.0.1",
     "promise-streams": "^1.0.1",
+    "raven": "^0.12.1",
     "request": "^2.72.0",
     "request-promise": "^3.0.0",
     "simple-oauth2": "^0.7.0",
