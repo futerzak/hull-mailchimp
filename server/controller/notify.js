@@ -131,6 +131,9 @@ export default class NotifyController {
       req.hull.client.logger.error("ship not configured");
       return Promise.resolve();
     }
+
+    mailchimpAgent.ensureWebhookSubscription(req);
+
     return req.shipApp.hullAgent.getSegments()
       .then(segments => {
         return segmentsMappingAgent.syncSegments(segments)

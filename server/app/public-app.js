@@ -7,7 +7,7 @@ import { NotifHandler } from "hull";
 import oauth from "../lib/oauth-client";
 import QueueAgentMiddleware from "../lib/middlewares/queue-agent";
 import controller from "../controller";
-const { notifyController, batchController } = controller;
+const { notifyController, batchController, mailchimpWebhookController } = controller;
 
 export default function Server({ queueAdapter, hostSecret, hullMiddleware }) {
   const app = express();
@@ -47,6 +47,8 @@ export default function Server({ queueAdapter, hostSecret, hullMiddleware }) {
     res.end("ok");
     return req.shipApp.queueAgent.create("syncJob");
   });
+
+  app.use("/mailchimp", hullMiddleware, bodyParser.urlencoded({ extended: true }), mailchimpWebhookController.handleAction);
 
   app.use("/auth", oauth({
     name: "Mailchimp",

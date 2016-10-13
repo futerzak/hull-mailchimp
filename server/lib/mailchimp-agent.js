@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import _ from "lodash";
 import * as helper from "./mailchimp-batch-helper";
+import uri from "urijs";
 
 /**
  * Class responsible for working on data in Mailchimp
@@ -35,6 +36,7 @@ export default class MembersAgent {
         user: _.pick(user, ["id", "email", "segment_ids"]),
         path: `/lists/${this.listId}/members/${hash}`
       });
+
       // TODO: investigate on custom merge fields strategies
       // type check, empty fields, fields that doesn't exist?
       // change the check if the users was already synced (update the traits)
@@ -97,6 +99,41 @@ export default class MembersAgent {
   getUsersFromOperations(operations) {
     const users = operations.map(op => op.data.user);
     return users;
+  }
+
+  getWebhook({ hostname, query }) {
+    const { ship } = query;
+    return this.mailchimpClient
+      .get(`/lists/${this.listId}/webhooks`)
+      .then(({ body = {} }) => {
+        const { webhooks = [] } = body;
+        return _.find(webhooks, ({ url = "" }) => {
+          return url && url.includes(ship) && url.includes(hostname);
+        });
+      });
+  }
+
+  createWebhook({ hostname, query }) {
+    const search = _.pick(query, ["organization", "ship", "secret"]);
+    const url = uri(`https://${hostname}/mailchimp`).search(search).toString();
+    const hook = {
+      url,
+      sources: { user: true, admin: true, api: true },
+      events: { subscribe: true, unsubscribe: true, profile: true, campaign: true }
+    };
+
+    const post = `/lists/${this.listId}/webhooks`;
+
+    return this.mailchimpClient
+      .post(post)
+      .send(hook)
+      .then(({ body }) => body);
+  }
+
+  ensureWebhookSubscription({ hostname, query }) {
+    this.getWebhook({ hostname, query }).then(
+      hook => hook || this.createWebhook({ hostname, query })
+    );
   }
 
 }
