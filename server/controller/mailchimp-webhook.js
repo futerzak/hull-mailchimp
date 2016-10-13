@@ -13,7 +13,7 @@ export default class MailchimpWebhookController {
 
     const { type, data } = req.body || {};
 
-    if (type === "profile" || type === "subscribe" && data && data.email) {
+    if (false && type === "profile" || type === "subscribe" && data && data.email) {
       const { email, id } = data;
       const anonymous_id = ["mailchimp", listId, id].join("-");
 
