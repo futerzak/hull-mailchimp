@@ -7,6 +7,9 @@ import { NotifHandler } from "hull";
 import oauth from "../lib/oauth-client";
 import QueueAgentMiddleware from "../lib/middlewares/queue-agent";
 import controller from "../controller";
+
+import WebKueRouter from "../router/web-kue-router";
+
 const { notifyController, batchController, mailchimpWebhookController } = controller;
 
 export default function Server({ queueAdapter, hostSecret, hullMiddleware }) {
@@ -16,6 +19,8 @@ export default function Server({ queueAdapter, hostSecret, hullMiddleware }) {
   app.use(express.static(path.resolve(__dirname, "..", "..", "assets")));
   app.set("views", `${__dirname}/../../views`);
   app.engine("html", renderFile);
+
+  app.use("/kue", WebKueRouter({ hostSecret, queueAdapter }));
 
   // FIXME: to minimize the amount of ship settings calls we need to
   // share the ship cache in hull client middleware.
@@ -45,7 +50,8 @@ export default function Server({ queueAdapter, hostSecret, hullMiddleware }) {
 
   app.post("/sync", QueueAgentMiddleware({ queueAdapter }), (req, res) => {
     res.end("ok");
-    return req.shipApp.queueAgent.create("syncJob");
+    req.shipApp.queueAgent.create("syncOutJob");
+    req.shipApp.queueAgent.create("syncInJob");
   });
 
   app.use("/mailchimp", hullMiddleware, bodyParser.urlencoded({ extended: true }), mailchimpWebhookController.handleAction);

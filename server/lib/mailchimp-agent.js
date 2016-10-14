@@ -116,29 +116,28 @@ export default class MembersAgent {
   createWebhook({ hostname, query }) {
     const search = _.pick(query, ["organization", "ship", "secret"]);
     const url = uri(`https://${hostname}/mailchimp`).search(search).toString();
-    console.log("createWebhook", { url });
+
     const hook = {
       url,
       sources: { user: true, admin: true, api: true },
       events: { subscribe: true, unsubscribe: true, profile: true, campaign: true }
     };
 
-    const post = `/lists/${this.listId}/webhooks`;
-
     return this.mailchimpClient
-      .post(post)
+      .post(`/lists/${this.listId}/webhooks`)
       .send(hook)
       .then(({ body }) => body);
   }
 
   ensureWebhookSubscription({ hostname, query }) {
-    console.log("ensureWebhookSubscription", { query });
-    this.getWebhook({ hostname, query }).then(
+    if (!this.listId) {
+      return Promise.reject(new Error("Missing listId"));
+    }
+    return this.getWebhook({ hostname, query }).then(
       hook => {
-        if (hook) console.warn("webhook already active", { hook });
         return hook || this.createWebhook({ hostname, query });
       }
-    );
+    ).catch(err => console.warn("Error creating webhook ", { err }));
   }
 
 }

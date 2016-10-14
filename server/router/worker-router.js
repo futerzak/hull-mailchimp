@@ -14,8 +14,10 @@ export default function (deps) {
     queueApp.attach("sendUsersJob", batchController.sendUsersJob);
     queueApp.attach("addToAudiencesJob", batchController.addToAudiencesJob);
     queueApp.attach("updateUsersJob", batchController.updateUsersJob);
+    queueApp.attach("importUsersJob", batchController.importUsersJob);
 
-    queueApp.attach("syncJob", syncController.syncJob);
+    queueApp.attach("syncInJob", syncController.syncInJob);
+    queueApp.attach("syncOutJob", syncController.syncOutJob);
 
     queueApp.attach("requestTrackJob", trackController.requestTrackJob);
     queueApp.attach("trackJob", trackController.trackJob);

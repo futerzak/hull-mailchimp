@@ -63,7 +63,11 @@ export default class NotifyController {
         }
       }
       return user;
-    }));
+    })).map(user => {
+      return _.pickBy(user, (v, k) => {
+        return _.includes(["segment_ids", "first_name", "last_name", "id", "email"], k) || k.match(/mailchimp/);
+      });
+    });
 
     const usersToTrack = users.filter(u => {
       return hullAgent.userAdded(u) && hullAgent.userWhitelisted(u);

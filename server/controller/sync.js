@@ -6,7 +6,7 @@ export default class SyncController {
    * then creates them according to `segment_mapping` settings and triggers
    * sync for all users
    */
-  syncJob(req) {
+  syncOutJob(req) {
     const { segmentsMappingAgent, hullAgent } = req.shipApp;
     const client = req.hull.client;
 
@@ -22,4 +22,19 @@ export default class SyncController {
         return req.shipApp.extractAgent.requestExtract({ fields });
       });
   }
+
+
+  /**
+   * SyncIn : import all the list members as hull users
+   */
+  syncInJob(req) {
+    const { mailchimpBatchAgent, mailchimpAgent } = req.shipApp;
+    const op = {
+      method: "GET",
+      path: `/lists/${mailchimpAgent.listId}/members`,
+      operation_id: JSON.stringify({ jobs: ["importUsersJob"], data: {} })
+    };
+    return mailchimpBatchAgent.create([op]);
+  }
+
 }

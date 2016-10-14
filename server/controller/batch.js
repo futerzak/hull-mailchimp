@@ -46,6 +46,12 @@ export default class BatchController {
         return u;
       }));
 
+      users = users.map(user => {
+        return _.pickBy(user, (v, k) => {
+          return _.includes(["first_name", "last_name", "id", "email", "segment_ids"], k) || k.match(/mailchimp/);
+        });
+      });
+
       return queueAgent.create("sendUsersJob", { users });
     });
   }
@@ -98,28 +104,27 @@ export default class BatchController {
     return mailchimpBatchAgent.create(ops);
   }
 
-  updateUsersJob(req) {
-    const operations = req.payload;
-    req.hull.client.logger.info("updateUsersJob", operations.length);
-    return Promise.all(operations.map(({ response, data }) => {
-      const traits = req.shipApp.hullAgent.mailchimpFields.reduce((t, path) => {
-        const key = _.last(path.split("."));
-        const value = _.get(response, path);
-        if (!_.isNil(value)) {
-          t[key] = value;
-        }
-        return t;
-      }, {});
-
-      if (response.status === 200) {
-        traits.unique_email_id = response.unique_email_id;
-      } else {
-        traits.import_error = response.detail;
+  updateUsersJob({ payload = [], shipApp = {}, hull }) {
+    const { hullAgent } = shipApp;
+    hull.client.logger.info("updateUsersJob", payload.length);
+    return Promise.all(payload.map(({ response, data }) => {
+      if (response.status !== 200) {
+        return hull.client.as(data.user.id).traits({
+          import_error: response.detail
+        }, { source: "mailchimp" });
       }
-
-      return req.hull.client.as(data.user.id).traits(traits, {
-        source: "mailchimp"
-      });
+      return hullAgent.updateUser(response);
     }));
+  }
+
+  importUsersJob(req) {
+    const { hullAgent } = req.shipApp;
+    return req.payload.map(({ response = {} }) => {
+      const { members = [] } = response;
+      req.hull.client.logger.info("importUsersJob", members.length);
+      return members.map(member => {
+        return hullAgent.updateUser(member);
+      });
+    });
   }
 }

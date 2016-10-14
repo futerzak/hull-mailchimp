@@ -33,7 +33,14 @@ export function Server({ hostSecret }) {
 
   const instrumentationAgent = new InstrumentationAgent();
 
-  new WorkerApp({ queueAdapter, hostSecret, hullMiddleware, instrumentationAgent })
+  const worker = new WorkerApp({
+    queueAdapter,
+    hostSecret,
+    hullMiddleware,
+    instrumentationAgent
+  });
+
+  worker
     .use(WorkerRouter(controllers))
     .process();
 
@@ -54,5 +61,10 @@ export function Server({ hostSecret }) {
   process.on("SIGINT", handleExit);
   process.on("SIGTERM", handleExit);
 
-  return PublicApp({ queueAdapter, hostSecret, hullMiddleware, instrumentationAgent });
+  return PublicApp({
+    queueAdapter,
+    hostSecret,
+    hullMiddleware,
+    instrumentationAgent
+  });
 }

@@ -1,5 +1,6 @@
 import _ from "lodash";
-import flatten from "flat";
+import HullAgent from "../lib/hull-agent";
+
 
 export default class MailchimpWebhookController {
 
@@ -23,32 +24,19 @@ export default class MailchimpWebhookController {
       return res.json({ ok: false, message: "Email not found" });
     }
 
-    const { email, id } = data;
-    const anonymous_id = `mailchimp:${id}`;
-    const hull = req.hull.client.as({ email, anonymous_id });
+    const hullAgent = new HullAgent(req.hull.ship, req.hull.client);
 
     if (type === "profile" || type === "subscribe") {
-      const merges = _.omit(data.merges, "GROUPINGS");
-      if (merges.INTERESTS) {
-        merges.INTERESTS = merges.INTERESTS.split(",").map(_.trim);
-      }
-
-      const traits = _.reduce({
-        updated_at: new Date().toISOString(),
-        unique_email_id: id,
-        subscribed: true,
-        status: "subscribed",
-        ...flatten(merges, { delimiter: "_", safe: true })
-      }, (tt, v, k) => {
-        return { ...tt, [`mailchimp/${k.toLowerCase()}`]: v };
-      }, {});
-
-      hull.traits(traits);
+      hullAgent.updateUser({
+        ...data,
+        subscribed: true
+      });
     } else if (type === "unsubscribe") {
-      hull.traits({
+      hullAgent.updateUser({
+        ...data,
         status: "unsubscribed",
         subscribed: false
-      }, { source: "mailchimp" });
+      });
     }
 
     return res.json({ listId, ok: true });
