@@ -4,17 +4,23 @@ import flatten from "flat";
 export default class MailchimpWebhookController {
 
   handleAction(req, res) {
-    const { type, data } = req.body || {};
+    const { body = {}, method = "" } = req;
+
+    if (method.toLowerCase() === "get") {
+      return res.json({ ok: true });
+    }
+
+    const { type, data } = body;
     const listId = _.get(req, "hull.ship.private_settings.mailchimp_list_id");
 
     if (!listId) {
       res.status(404);
-      return res.end("Not found");
+      return res.json({ ok: false, message: "Not found" });
     }
 
     if (!data || !data.email) {
       res.status(404);
-      return res.end("Email not found");
+      return res.json({ ok: false, message: "Email not found" });
     }
 
     const { email, id } = data;
