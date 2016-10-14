@@ -13,16 +13,21 @@ export default class MailchimpWebhookController {
 
     const { type, data } = req.body || {};
 
-    if (false && type === "profile" || type === "subscribe" && data && data.email) {
+    if (type === "profile" || type === "subscribe" && data && data.email) {
       const { email, id } = data;
-      const anonymous_id = ["mailchimp", listId, id].join("-");
+      const anonymous_id = `mailchimp:${id}`;
 
       const hull = req.hull.client.as({ email, anonymous_id });
+
+      const merges = _.omit(data.merges, "GROUPINGS");
+      if (merges.INTERESTS) {
+        merges.INTERESTS = merges.INTERESTS.split(",").map(_.trim);
+      }
 
       const traits = _.reduce({
         updated_at: new Date().toISOString(),
         unique_email_id: id,
-        ...flatten(data.merges, { delimiter: "_" })
+        ...flatten(merges, { delimiter: "_", safe: true })
       }, (tt, v, k) => {
         return { ...tt, [`mailchimp/${k.toLowerCase()}`]: v };
       }, {});
