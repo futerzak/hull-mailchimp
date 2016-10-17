@@ -216,7 +216,12 @@ export default class EventsAgent {
       const user = this.hull.as(email.id);
       return Promise.all(email.activity.map(a => {
         const uniqId = this.getUniqId({ email, activity: a });
-        this.hull.logger.info("trackEvents.track", email.email_address, a.action);
+        this.hull.logger.info("trackEvents.track", {
+          email: email.email_address,
+          action: a.action,
+          timestamp: a.timestamp,
+          uniqId
+        });
         const eventName = this.getEventName(a);
         const props = this.getEventProperties(a, email);
 
