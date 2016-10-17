@@ -174,10 +174,8 @@ export default class EventsAgent {
       response.email_address = data.email.email;
       response.id = data.email.id;
 
-      console.warn("parseMemberActivities", { response, data });
-
       if (data.email["traits_mailchimp/latest_activity_at"]) {
-        response.activity = response.activity.filter(a => {
+        response.activity = (response.activity || []).filter(a => {
           return moment(a.timestamp).utc().isAfter(data.email["traits_mailchimp/latest_activity_at"]);
         });
       }
