@@ -67,7 +67,7 @@
     {
       "url": "/requestTrack",
       "type": "cron",
-      "value": "0/15 * * * *"
+      "value": "7 */6 * * *"
     }
  ]
 }
