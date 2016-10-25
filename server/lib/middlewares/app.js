@@ -6,6 +6,7 @@ import QueueAgent from "../queue/queue-agent";
 import EventsAgent from "../events-agent";
 import MailchimpBatchAgent from "../mailchimp-batch-agent";
 import SegmentsMappingAgent from "../segments-mapping-agent";
+import InterestsMappingAgent from "../interests-mapping-agent";
 
 export default function ({ queueAdapter }) {
   return function middleware(req, res, next) {
@@ -20,7 +21,8 @@ export default function ({ queueAdapter }) {
     const extractAgent = new ExtractAgent(req, req.hull.client);
     const queueAgent = new QueueAgent(queueAdapter, req);
     const segmentsMappingAgent = new SegmentsMappingAgent(mailchimpClient, req.hull.client, req.hull.ship);
-    const mailchimpAgent = new MailchimpAgent(mailchimpClient, req.hull.ship, segmentsMappingAgent, req.hull.client);
+    const interestsMappingAgent = new InterestsMappingAgent(mailchimpClient, req.hull.client, req.hull.ship);
+    const mailchimpAgent = new MailchimpAgent(mailchimpClient, req.hull.ship, segmentsMappingAgent, interestsMappingAgent, req.hull.client);
     const hullAgent = new HullAgent(req.hull.ship, req.hull.client);
     const mailchimpBatchAgent = new MailchimpBatchAgent(req.hull.client, mailchimpClient, queueAgent);
     const eventsAgent = new EventsAgent(mailchimpClient, req.hull.client, req.hull.ship);
@@ -28,6 +30,7 @@ export default function ({ queueAdapter }) {
     req.shipApp = {
       mailchimpClient,
       segmentsMappingAgent,
+      interestsMappingAgent,
       mailchimpAgent,
       hullAgent,
       queueAgent,

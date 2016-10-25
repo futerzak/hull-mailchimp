@@ -54,6 +54,18 @@
       "type": "object",
       "properties": {},
       "format": "hidden"
+    },
+    {
+      "name": "interest_category_id",
+      "title": "Interest category ID",
+      "type": "string",
+      "format": "hidden"
+    },
+    {
+      "name": "interests_mapping",
+      "type": "object",
+      "properties": {},
+      "format": "hidden"
     }
   ],
   "readme": "readme.md",

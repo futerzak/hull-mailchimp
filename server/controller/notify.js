@@ -93,19 +93,24 @@ export default class NotifyController {
 
   segmentUpdateHandlerJob(req) {
     const { segment } = req.payload;
-    const { segmentsMappingAgent, extractAgent, hullAgent, mailchimpAgent } = req.shipApp;
+    const { interestsMappingAgent, segmentsMappingAgent, extractAgent, hullAgent, mailchimpAgent } = req.shipApp;
 
     if (!mailchimpAgent.isShipConfigured()) {
       req.hull.client.logger.error("ship not configured");
       return Promise.resolve();
     }
 
-    return segmentsMappingAgent.deleteSegment(segment)
-      .then(() => segmentsMappingAgent.createSegment(segment))
-      .then(() => segmentsMappingAgent.updateMapping())
-      .then(() => {
-        return extractAgent.requestExtract({ segment, fields: hullAgent.getExtractFields() });
-      });
+    const agents = [
+      interestsMappingAgent,
+      segmentsMappingAgent
+    ];
+
+    return Promise.mapSeries(
+      agents,
+      agent => agent.recreateSegment(segment)
+    ).then(() => {
+      return extractAgent.requestExtract({ segment, fields: hullAgent.getExtractFields() });
+    });
   }
 
   segmentDeleteHandler(payload, { req }) {

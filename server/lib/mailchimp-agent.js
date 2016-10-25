@@ -6,11 +6,12 @@ import uri from "urijs";
 /**
  * Class responsible for working on data in Mailchimp
  */
-export default class MembersAgent {
+export default class MailchimpAgent {
 
-  constructor(mailchimpClient, ship, segmentsMappingAgent, hullClient) {
+  constructor(mailchimpClient, ship, segmentsMappingAgent, interestsMappingAgent, hullClient) {
     this.mailchimpClient = mailchimpClient;
     this.segmentsMappingAgent = segmentsMappingAgent;
+    this.interestsMappingAgent = interestsMappingAgent;
     this.hullClient = hullClient;
     this.ship = ship;
     this.listId = _.get(ship, "private_settings.mailchimp_list_id");
@@ -51,6 +52,7 @@ export default class MembersAgent {
             FNAME: user.first_name || "",
             LNAME: user.last_name || ""
           },
+          interests: this.interestsMappingAgent.getInterestsForSegments(user.segment_ids),
           email_address: user.email,
           status_if_new: "subscribed"
         })
@@ -59,10 +61,24 @@ export default class MembersAgent {
   }
 
   getAddToAudiencesOps(users) {
-    return _.reduce(users, (ops, user) => {
+    const ret = _.reduce(users, (ops, user) => {
       const listId = this.listId;
       // const subscriberHash = this.getEmailHash(user.email);
       const audienceIds = user.segment_ids.map(s => this.segmentsMappingAgent.getAudienceId(s));
+
+      const hash = this.getEmailHash(user.email);
+      const interests = this.interestsMappingAgent.getInterestsForSegments(user.segment_ids);
+
+      // update user interests
+      ops.push({
+        method: "PUT",
+        path: `/lists/${this.listId}/members/${hash}`,
+        body: JSON.stringify({
+          interests,
+          email_address: user.email,
+          status_if_new: "subscribed"
+        })
+      });
 
       _.map(audienceIds, audienceId => {
         const op = {
@@ -75,8 +91,11 @@ export default class MembersAgent {
         };
         ops.push(op);
       });
+
       return ops;
     }, []);
+
+    return ret;
   }
 
   getRemoveFromAudiencesOp(users) {
@@ -84,6 +103,24 @@ export default class MembersAgent {
       const listId = this.listId;
       const subscriberHash = this.getEmailHash(user.email);
       const audienceIds = _.get(user, "remove_segment_ids", []).map(s => this.segmentsMappingAgent.getAudienceId(s));
+
+
+      const segment_ids = _.difference((user.segment_ids || []), (user.remove_segment_ids || []));
+
+      const hash = this.getEmailHash(user.email);
+      const interests = this.interestsMappingAgent.getInterestsForSegments(segment_ids);
+
+      // update user interests
+      ops.push({
+        method: "PUT",
+        path: `/lists/${this.listId}/members/${hash}`,
+        body: JSON.stringify({
+          interests,
+          email_address: user.email,
+          status_if_new: "subscribed"
+        })
+      });
+
 
       _.map(audienceIds, audienceId => {
         const op = {
