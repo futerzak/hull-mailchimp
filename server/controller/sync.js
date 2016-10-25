@@ -7,7 +7,7 @@ export default class SyncController {
    * sync for all users
    */
   syncOutJob(req) {
-    const { segmentsMappingAgent, hullAgent } = req.shipApp;
+    const { segmentsMappingAgent, interestsMappingAgent, hullAgent } = req.shipApp;
     const client = req.hull.client;
 
     client.logger.info("request.sync.start");
@@ -15,6 +15,7 @@ export default class SyncController {
     return segmentsMappingAgent.syncSegments()
       .then(hullAgent.getSegments.bind(hullAgent))
       .then(segments => {
+        segments.map(segment => interestsMappingAgent.recreateSegment(segment))
         return segmentsMappingAgent.syncSegments(segments);
       })
       .then(() => {
