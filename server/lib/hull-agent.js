@@ -28,7 +28,6 @@ export default class HullAgent {
     const unique_email_id = member.unique_email_id || member.id;
     const attrs = {
       ...flatten(merges, { delimiter: "_", safe: true }),
-      updated_at: new Date().toISOString(),
       unique_email_id,
       email
     };
