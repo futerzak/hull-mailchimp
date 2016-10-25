@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import { renderFile } from "ejs";
 import bodyParser from "body-parser";
-import { NotifHandler } from "hull";
+import { NotifHandler, Routes } from "hull";
 
 import oauth from "../lib/oauth-client";
 import QueueAgentMiddleware from "../lib/middlewares/queue-agent";
@@ -79,6 +79,9 @@ export default function Server({ queueAdapter, hostSecret, hullMiddleware }) {
   app.get("/manifest.json", (req, res) => {
     res.sendFile(path.resolve(__dirname, "..", "..", "manifest.json"));
   });
+
+  app.get("/", Routes.Readme);
+  app.get("/readme", Routes.Readme);
 
   return app;
 }
