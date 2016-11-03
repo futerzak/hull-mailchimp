@@ -67,7 +67,7 @@ export default class HullAgent {
   }
 
   getUsersToAddToList(users) {
-    return users.filter(u => this.userComplete(u) && !this.userAdded(u)
+    return users.filter(u => this.userComplete(u) /*&& !this.userAdded(u)*/
       && this.userWhitelisted(u));
   }
 
