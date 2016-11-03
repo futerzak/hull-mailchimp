@@ -88,7 +88,7 @@ export default class BatchController {
     hull.client.logger.info("updateUsersJob", payload.length);
     return Promise.all(payload.map((member) => {
       if (_.get(member, "error")) {
-        return hull.client.as(member.email_address).traits({
+        return hull.client.as({ email: member.email_address }).traits({
           import_error: member.error
         }, { source: "mailchimp" });
       }
