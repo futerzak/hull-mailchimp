@@ -14,7 +14,8 @@ export default class NotifyController {
   userUpdateHandler(payload, { req }) {
     const { changes = {} } = payload.message;
     if (!_.isEmpty(_.get(changes, "user['traits_mailchimp/unique_email_id'][1]"))
-      || !_.isEmpty(_.get(changes, "user['traits_mailchimp/import_error'][1]"))) {
+      || !_.isEmpty(_.get(changes, "user['traits_mailchimp/import_error'][1]"))
+      || !_.isEmpty(_.get(changes, "user['traits_mailchimp/last_changed'][1]"))) {
       req.hull.client.logger.info("user skipped");
       return Promise.resolve();
     }
@@ -145,18 +146,19 @@ export default class NotifyController {
    * Makes sure that all existing Hull segments have mapped Mailchimp static segment
    */
   shipUpdateHandlerJob(req) {
-    const { segmentsMappingAgent, mailchimpAgent } = req.shipApp;
+    const { segmentsMappingAgent, mailchimpAgent, interestsMappingAgent } = req.shipApp;
     if (!mailchimpAgent.isShipConfigured()) {
       req.hull.client.logger.error("ship not configured");
       return Promise.resolve();
     }
 
     mailchimpAgent.ensureWebhookSubscription(req);
-
     return req.shipApp.hullAgent.getSegments()
       .then(segments => {
         return segmentsMappingAgent.syncSegments(segments)
-          .then(segmentsMappingAgent.updateMapping.bind(segmentsMappingAgent));
+          .then(segmentsMappingAgent.updateMapping.bind(segmentsMappingAgent))
+          .then(() => interestsMappingAgent.ensureCategory())
+          .then(() => interestsMappingAgent.syncInterests(segments));
       });
   }
 }

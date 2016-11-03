@@ -6,7 +6,7 @@ export default class BatchController {
     const segmentId = req.query.segment_id || null;
     req.shipApp.queueAgent.create("handleBatchExtractJob", {
       body: req.body,
-      chunkSize: process.env.MAILCHIMP_BATCH_HANDLER_SIZE || 100,
+      chunkSize: process.env.MAILCHIMP_BATCH_HANDLER_SIZE || 500,
       segmentId
     });
   }
@@ -65,55 +65,34 @@ export default class BatchController {
    */
   sendUsersJob(req) {
     const { users } = req.payload;
-    const { hullAgent, mailchimpAgent, mailchimpBatchAgent } = req.shipApp;
+    const { hullAgent, mailchimpAgent, queueAgent } = req.shipApp;
 
     const usersToAddToList = hullAgent.getUsersToAddToList(users);
     const usersToAddOrRemove = hullAgent.usersToAddOrRemove(users);
 
-    const addToListOps = mailchimpAgent.getAddToListOps(usersToAddToList, ["addToAudiencesJob", "updateUsersJob"]);
-    const addToAudiencesOps = mailchimpAgent.getAddToAudiencesOps(usersToAddOrRemove);
-    const removeFromAudiencesOps = mailchimpAgent.getRemoveFromAudiencesOp(usersToAddOrRemove);
-
     req.hull.client.logger.info("sendUsersJob.ops", {
-      addToListOps: addToListOps.length,
-      addToAudiencesOps: addToAudiencesOps.length,
-      removeFromAudiencesOps: removeFromAudiencesOps.length
+      usersToAddToList: usersToAddToList.length
     });
 
-    const ops = _.concat(addToListOps, addToAudiencesOps, removeFromAudiencesOps);
-
-    return mailchimpBatchAgent.create(ops);
-  }
-
-
-  /**
-   * this is a job triggered after successfull `sendUsersJob` with users who needed
-   * to be saved to mailchimp list before anything else
-   */
-  addToAudiencesJob(req) {
-    const operations = req.payload;
-    req.hull.client.logger.info("addToAudiencesJob", operations.length);
-    const { mailchimpAgent, mailchimpBatchAgent } = req.shipApp;
-    // TODO: check if mailchimp operation was successful
-    const usersToAddToAudiences = mailchimpAgent.getUsersFromOperations(operations);
-
-    const addToAudiencesOps = mailchimpAgent.getAddToAudiencesOps(usersToAddToAudiences);
-
-    const ops = _.concat(addToAudiencesOps);
-
-    return mailchimpBatchAgent.create(ops);
+    return mailchimpAgent.addToList(usersToAddToList)
+      .then(res => {
+        return queueAgent.create("updateUsersJob", _.concat(res.body.new_members, res.body.updated_members, res.body.errors));
+      })
+      .then(() => {
+        return mailchimpAgent.saveToAudiences(usersToAddOrRemove);
+      });
   }
 
   updateUsersJob({ payload = [], shipApp = {}, hull }) {
     const { hullAgent } = shipApp;
     hull.client.logger.info("updateUsersJob", payload.length);
-    return Promise.all(payload.map(({ response, data }) => {
-      if (response.status !== 200) {
-        return hull.client.as(data.user.id).traits({
-          import_error: response.detail
+    return Promise.all(payload.map((member) => {
+      if (_.get(member, "error")) {
+        return hull.client.as(member.email_address).traits({
+          import_error: member.error
         }, { source: "mailchimp" });
       }
-      return hullAgent.updateUser(response);
+      return hullAgent.updateUser(member);
     }));
   }
 
