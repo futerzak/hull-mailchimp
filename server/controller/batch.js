@@ -76,7 +76,7 @@ export default class BatchController {
 
     return mailchimpAgent.addToList(usersToAddToList)
       .then(res => {
-        return queueAgent.create("updateUsersJob", _.concat(res.body.new_members, res.body.updated_members, res.body.errors));
+        return queueAgent.create("updateUsersJob", res.body.errors);
       })
       .then(() => {
         return mailchimpAgent.saveToAudiences(usersToAddOrRemove);
