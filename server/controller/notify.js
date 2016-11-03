@@ -77,9 +77,12 @@ export default class NotifyController {
     if (users.length > 0) {
       promises.push(queueAgent.create("sendUsersJob", { users }));
     }
-    if (usersToTrack.length > 0) {
-      promises.push(queueAgent.create("trackUsersJob", { users: usersToTrack }));
-    }
+
+    // TODO re-enable events tracking
+    // if (usersToTrack.length > 0) {
+    //   promises.push(queueAgent.create("trackUsersJob", { users: usersToTrack }));
+    // }
+
     return Promise.all(promises);
   }
 
@@ -93,10 +96,14 @@ export default class NotifyController {
 
   segmentUpdateHandlerJob(req) {
     const { segment } = req.payload;
+    console.warn("[segmentUpdateHandler] start", JSON.stringify({ segment }));
+
     const { interestsMappingAgent, segmentsMappingAgent, extractAgent, hullAgent, mailchimpAgent } = req.shipApp;
 
     if (!mailchimpAgent.isShipConfigured()) {
       req.hull.client.logger.error("ship not configured");
+
+      console.warn("[segmentUpdateHandler] ship not configured");
       return Promise.resolve();
     }
 
@@ -109,7 +116,10 @@ export default class NotifyController {
       agents,
       agent => agent.recreateSegment(segment)
     ).then(() => {
+      console.warn("[segmentUpdateHandler] requestExtract for ", segment.name);
       return extractAgent.requestExtract({ segment, fields: hullAgent.getExtractFields() });
+    }).catch(err => {
+      console.warn("[segmentUpdateHandler] Error ", err);
     });
   }
 
