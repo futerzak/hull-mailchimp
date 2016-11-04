@@ -55,7 +55,7 @@ export default class MailchimpAgent {
 
     return this.mailchimpClient
       .post(`/lists/${this.listId}`)
-      .send({ members, update_existing: true });
+      .send({ members: _.uniqBy(members, "email_address"), update_existing: true });
   }
 
   saveToAudiences(users, concurrency = 3) {
