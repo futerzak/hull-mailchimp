@@ -87,10 +87,7 @@ export default class MailchimpAgent {
       return () => {
         return this.mailchimpClient
           .post(`/lists/${this.listId}/segments/${audienceId}`)
-          .send(operation)
-          .catch((err) => {
-            console.log("ERROR", err);
-          });
+          .send(operation);
       };
     });
 
