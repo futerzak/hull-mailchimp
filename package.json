@@ -6,8 +6,8 @@
   "scripts": {
     "build": "npm run clean && npm run build:server",
     "build:server": "babel server -d build",
-    "start": "node  --optimize_for_size --max_old_space_size=460 --gc_interval=100 ./bin/start",
-    "start:dev": "babel-watch -L main.js",
+    "start": "nf start",
+    "start:dev": "nf -j Procfile.dev start",
     "test": "NODE_ENV=test mocha mocha-babel.js -R spec ./tests",
     "test:lint": "eslint server",
     "clean": "rm -rf build",
@@ -50,6 +50,7 @@
     "event-stream": "^3.3.4",
     "express": "^4.13.4",
     "flat": "^2.0.1",
+    "foreman": "^2.0.0",
     "html": "0.0.10",
     "hull": "0.10.2",
     "jwt-simple": "^0.5.0",
