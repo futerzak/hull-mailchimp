@@ -113,6 +113,10 @@ export default class NotifyController {
       segmentsMappingAgent
     ];
 
+    /**
+     * FIXME: when we recreate segments on it's update we break mailchimp
+     * automation because of changing segments and interests ids
+     */
     return Promise.mapSeries(
       agents,
       agent => agent.recreateSegment(segment)

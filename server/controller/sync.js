@@ -1,3 +1,4 @@
+import Promise from "bluebird";
 
 export default class SyncController {
 
@@ -15,8 +16,10 @@ export default class SyncController {
     return segmentsMappingAgent.syncSegments()
       .then(hullAgent.getSegments.bind(hullAgent))
       .then(segments => {
-        segments.map(segment => interestsMappingAgent.recreateSegment(segment))
-        return segmentsMappingAgent.syncSegments(segments);
+        return Promise.all(segments.map(segment => interestsMappingAgent.recreateSegment(segment)))
+          .then(() => {
+            return segmentsMappingAgent.syncSegments(segments);
+          });
       })
       .then(() => {
         const fields = req.shipApp.hullAgent.getExtractFields();
@@ -33,9 +36,8 @@ export default class SyncController {
     const op = {
       method: "GET",
       path: `/lists/${mailchimpAgent.listId}/members`,
-      operation_id: JSON.stringify({ jobs: ["importUsersJob"], data: {} })
     };
-    return mailchimpBatchAgent.create([op]);
+    return mailchimpBatchAgent.create([op], ["importUsersJob"]);
   }
 
 }

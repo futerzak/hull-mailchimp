@@ -2,7 +2,6 @@ import Promise from "bluebird";
 import moment from "moment";
 import _ from "lodash";
 import crypto from "crypto";
-import * as helper from "./mailchimp-batch-helper";
 
 /**
  * EventsAgent has methods to query Mailchimp for data relevant

@@ -3,8 +3,6 @@ import _ from "lodash";
 import ps from "promise-streams";
 import BatchStream from "batch-stream";
 
-import * as helper from "./mailchimp-batch-helper";
-
 /**
  * Class responsible for working with Mailchimp batches
  * @see http://developer.mailchimp.com/documentation/mailchimp/reference/batches/
@@ -22,7 +20,7 @@ export default class MailchimpBatchAgent {
    * to handle the results
    * @api
    */
-  create(operations) {
+  create(operations, jobs = []) {
     if (_.isEmpty(operations)) {
       return Promise.resolve([]);
     }
@@ -33,14 +31,13 @@ export default class MailchimpBatchAgent {
       .then(response => {
         const { id } = response.body;
         this.hullClient.logger.info("handleMailchimpBatchJob.create", id);
-        // if there is no `operation_id` property set in this batch,
-        // we don't perform next tasks on these data, so we don't queue a handler
-        // here
-        if (_.filter(operations, "operation_id").length === 0) {
+        // if jobs argument is empty, we don't perform next tasks on
+        // returned data, so we don't need to queue a handler here
+        if (_.isEmpty(jobs)) {
           return Promise.resolve();
         }
 
-        return this.queueAgent.create("handleMailchimpBatchJob", { batchId: id }, { delay: process.env.MAILCHIMP_BATCH_HANDLER_INTERVAL || 10000 });
+        return this.queueAgent.create("handleMailchimpBatchJob", { batchId: id, jobs }, { delay: process.env.MAILCHIMP_BATCH_HANDLER_INTERVAL || 10000 });
       })
       .catch(err => {
         return this.hullClient.logger.error("mailchimpBatchAgent.create.error", err);
@@ -51,7 +48,7 @@ export default class MailchimpBatchAgent {
    * checks if the batch is finished
    * @api
    */
-  handleBatch(batchId, attempt) {
+  handle(batchId, attempt, jobs = []) {
     return this.mailchimpClient
       .get(`/batches/${batchId}`)
       .then((response) => {
@@ -75,10 +72,8 @@ export default class MailchimpBatchAgent {
           .pipe(new BatchStream({ size: process.env.MAILCHIMP_BATCH_HANDLER_SIZE || 100 }))
           .pipe(ps.map((ops) => {
             try {
-              const jobsToQueue = helper.groupByJobs(ops);
-
-              return Promise.all(_.map(jobsToQueue, (value, key) => {
-                return this.queueAgent.create(key, value);
+              return Promise.all(_.map(jobs, (job) => {
+                return this.queueAgent.create(job, ops);
               }));
             } catch (e) {
               console.error(e);

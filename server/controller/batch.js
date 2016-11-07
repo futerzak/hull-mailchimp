@@ -65,7 +65,7 @@ export default class BatchController {
    */
   sendUsersJob(req) {
     const { users } = req.payload;
-    const { hullAgent, mailchimpAgent, queueAgent } = req.shipApp;
+    const { hullAgent, mailchimpAgent, queueAgent, segmentsMappingAgent, interestsMappingAgent } = req.shipApp;
 
     const usersToAddToList = hullAgent.getUsersToAddToList(users);
     const usersToAddOrRemove = hullAgent.usersToAddOrRemove(users);
@@ -74,7 +74,19 @@ export default class BatchController {
       usersToAddToList: usersToAddToList.length
     });
 
-    return mailchimpAgent.addToList(usersToAddToList)
+    return mailchimpAgent.ensureWebhookSubscription(req)
+      .then(() => {
+        return hullAgent.getSegments();
+      })
+      .then(segments => {
+        return segmentsMappingAgent.syncSegments(segments)
+          .then(segmentsMappingAgent.updateMapping.bind(segmentsMappingAgent))
+          .then(() => interestsMappingAgent.ensureCategory())
+          .then(() => interestsMappingAgent.syncInterests(segments));
+      })
+      .then(() => {
+        return mailchimpAgent.addToList(usersToAddToList)
+      })
       .then(res => {
         return queueAgent.create("updateUsersJob", res.body.errors);
       })
@@ -84,7 +96,7 @@ export default class BatchController {
       .catch((err = {}) => {
         console.log("sendUsersJob.error", err.message);
         return Promise.reject(err);
-      });;
+      });
   }
 
   updateUsersJob({ payload = [], shipApp = {}, hull }) {

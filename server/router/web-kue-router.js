@@ -22,9 +22,6 @@ function auth(pass) {
 }
 
 export default function ({ hostSecret, queueAdapter }) {
-
-  console.warn("Stargingn with ", { hostSecret });
-
   const router = Router();
 
   router.use(auth(hostSecret));

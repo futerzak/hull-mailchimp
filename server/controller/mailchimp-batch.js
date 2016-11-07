@@ -8,6 +8,6 @@ export default class MailchimpBatchController {
   handleMailchimpBatchJob(req) {
     const { batchId, attempt = 1 } = req.payload;
 
-    return req.shipApp.mailchimpBatchAgent.handleBatch(batchId, attempt);
+    return req.shipApp.mailchimpBatchAgent.handle(batchId, attempt);
   }
 }

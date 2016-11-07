@@ -26,6 +26,8 @@ const worker = new WorkerApp({
   instrumentationAgent
 });
 
+console.warn(`Starting the worker`);
+
 worker
   .use(WorkerRouter(controllers))
   .process();

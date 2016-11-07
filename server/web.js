@@ -25,5 +25,6 @@ PublicApp({
   queueAdapter,
   hostSecret,
   hullMiddleware,
-  instrumentationAgent
+  instrumentationAgent,
+  controllers
 }).listen(PORT);

@@ -3,8 +3,6 @@ import _ from "lodash";
 import uri from "urijs";
 import Promise from "bluebird";
 
-import * as helper from "./mailchimp-batch-helper";
-
 /**
  * Class responsible for working on data in Mailchimp
  */
@@ -34,7 +32,6 @@ export default class MailchimpAgent {
 
   addToList(users) {
     const members = users.map(user => {
-      const hash = this.getEmailHash(user.email);
       const segment_ids = _.difference((user.segment_ids || []), (user.remove_segment_ids || []));
 
       // TODO: investigate on custom merge fields strategies
@@ -60,7 +57,6 @@ export default class MailchimpAgent {
 
   saveToAudiences(users, concurrency = 3) {
     const req = _.reduce(users, (ops, user) => {
-      const listId = this.listId;
       const audienceIds = user.segment_ids.map(s => this.segmentsMappingAgent.getAudienceId(s));
       const removedAudienceIds = _.get(user, "remove_segment_ids", []).map(s => this.segmentsMappingAgent.getAudienceId(s));
 
@@ -92,11 +88,6 @@ export default class MailchimpAgent {
     });
 
     return Promise.map(promises, (p) => p(), { concurrency });
-  }
-
-  getUsersFromOperations(operations) {
-    const users = operations.map(op => op.data.user);
-    return users;
   }
 
   getWebhook({ hostname, query }) {
@@ -131,11 +122,13 @@ export default class MailchimpAgent {
     if (!this.listId) {
       return Promise.reject(new Error("Missing listId"));
     }
-    return this.getWebhook({ hostname, query }).then(
-      hook => {
-        return hook || this.createWebhook({ hostname, query });
-      }
-    ).catch(err => console.warn("Error creating webhook ", { err }));
+    return this.getWebhook({ hostname, query })
+      .then(hook => {
+        if (hook) {
+          return Promise.resolve(hook)
+        }
+        return this.createWebhook({ hostname, query });
+      }).catch(err => console.warn("Error creating webhook ", { err }));
   }
 
 }

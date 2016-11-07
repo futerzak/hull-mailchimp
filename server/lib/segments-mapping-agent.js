@@ -54,7 +54,7 @@ export default class SegmentsAgent {
   }
 
   recreateSegment(segment) {
-    const steps = [ 'deleteSegment', 'createSegment', 'updateMapping' ];
+    const steps = ["deleteSegment", "createSegment", "updateMapping"];
     return Promise.mapSeries(
       steps,
       step => this[step](segment)

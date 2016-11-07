@@ -30,9 +30,17 @@ export default class InstrumentationAgent {
     }
   }
 
-  catchError(err, extra = {}) {
+  catchError(err, extra = {}, tags = {}) {
     if (this.raven && err) {
-      this.raven.captureException(err, { extra });
+      return this.raven.captureException(err, {
+        extra,
+        tags,
+        fingerprint: [
+          "{{ default }}",
+          err.message
+        ]
+      });
     }
+    return console.error(err);
   }
 }

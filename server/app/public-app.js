@@ -6,14 +6,13 @@ import { NotifHandler, Routes } from "hull";
 
 import oauth from "../lib/oauth-client";
 import QueueAgentMiddleware from "../lib/middlewares/queue-agent";
-import controller from "../controller";
 
 import WebKueRouter from "../router/web-kue-router";
 
-const { notifyController, batchController, mailchimpWebhookController } = controller;
-
-export default function Server({ queueAdapter, hostSecret, hullMiddleware }) {
+export default function Server({ queueAdapter, hostSecret, hullMiddleware, controllers }) {
   const app = express();
+
+  const { notifyController, batchController, mailchimpWebhookController } = controllers;
 
   app.use(express.static(path.resolve(__dirname, "..", "..", "dist")));
   app.use(express.static(path.resolve(__dirname, "..", "..", "assets")));
