@@ -1,6 +1,6 @@
 import Promise from "bluebird";
 import _ from "lodash";
-import BatchSyncHandler from "../lib/batch-sync-handler";
+import BatchSyncHandler from "../util/batch-sync-handler";
 
 export default class NotifyController {
 

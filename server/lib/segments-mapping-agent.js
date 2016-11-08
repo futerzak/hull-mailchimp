@@ -4,6 +4,7 @@ import Promise from "bluebird";
 /**
  * Agent managing Mailchimp static segments aka audiences
  * and mapping stored in ships private settings
+ * TODO: integrate with SyncAgent
  */
 export default class SegmentsAgent {
 

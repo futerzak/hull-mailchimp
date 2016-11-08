@@ -1,11 +1,11 @@
 /**
- * Project dependencies tree
+ * Main project dependencies
  */
 import kue from "kue";
 
-import KueAdapter from "./lib/queue/adapter/kue";
-import InstrumentationAgent from "./lib/instrumentation-agent";
-import BatchSyncHandler from "./lib/batch-sync-handler";
+import KueAdapter from "./util/queue/adapter/kue";
+import InstrumentationAgent from "./util/instrumentation-agent";
+import BatchSyncHandler from "./util/batch-sync-handler";
 export controllers from "./controller";
 
 export const hostSecret = process.env.SECRET || "shhuuut";

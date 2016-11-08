@@ -33,11 +33,18 @@ export default class SyncController {
    */
   syncInJob(req) {
     const { mailchimpBatchAgent, mailchimpAgent } = req.shipApp;
+    const exclude = [
+      "_links",
+      "members._links",
+    ];
     const op = {
       method: "GET",
       path: `/lists/${mailchimpAgent.listId}/members`,
+      params: {
+        exclude_fields: exclude.join(",")
+      }
     };
-    return mailchimpBatchAgent.create([op], ["importUsersJob"]);
+    return mailchimpBatchAgent.create([op], ["importUsersJob"], 1);
   }
 
 }

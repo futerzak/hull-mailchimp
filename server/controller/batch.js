@@ -85,10 +85,13 @@ export default class BatchController {
           .then(() => interestsMappingAgent.syncInterests(segments));
       })
       .then(() => {
-        return mailchimpAgent.addToList(usersToAddToList)
+        return mailchimpAgent.addToList(usersToAddToList);
       })
       .then(res => {
-        return queueAgent.create("updateUsersJob", res.body.errors);
+        if (!_.isEmpty(res.body.errors)) {
+          return queueAgent.create("updateUsersJob", res.body.errors);
+        }
+        return true;
       })
       .then(() => {
         return mailchimpAgent.saveToAudiences(usersToAddOrRemove);
@@ -114,12 +117,11 @@ export default class BatchController {
 
   importUsersJob(req) {
     const { hullAgent } = req.shipApp;
-    return req.payload.map(({ response = {} }) => {
-      const { members = [] } = response;
-      req.hull.client.logger.info("importUsersJob", members.length);
-      return members.map(member => {
-        return hullAgent.updateUser(member);
-      });
+    req.hull.client.logger.info("importUsersJob", req.payload.members.length);
+    const { members = [] } = req.payload;
+    req.hull.client.logger.info("importUsersJob", members.length);
+    return members.map(member => {
+      return hullAgent.updateUser(member);
     });
   }
 }

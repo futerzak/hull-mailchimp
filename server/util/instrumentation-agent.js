@@ -1,3 +1,4 @@
+import util from "util";
 import raven from "raven";
 
 export default class InstrumentationAgent {
@@ -41,6 +42,6 @@ export default class InstrumentationAgent {
         ]
       });
     }
-    return console.error(err);
+    return console.error(util.inspect(err, { depth: 10 }));
   }
 }

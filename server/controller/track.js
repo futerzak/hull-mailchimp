@@ -27,10 +27,10 @@ export default class TrackController {
 
     return eventsAgent.getTrackableCampaigns()
       .then(campaigns => {
-        return eventsAgent.getEmailActivities(campaigns, ["handleEmailsActivitiesJob"]);
+        return eventsAgent.getEmailActivities(campaigns);
       })
       .then(operations => {
-        return mailchimpBatchAgent.create(operations);
+        return mailchimpBatchAgent.create(operations, ["handleEmailsActivitiesJob"]);
       });
   }
 

@@ -90,8 +90,8 @@ export default class MailchimpAgent {
     return Promise.map(promises, (p) => p(), { concurrency });
   }
 
-  getWebhook({ hostname, query }) {
-    const { ship } = query;
+  getWebhook({ hostname, hull }) {
+    const ship = _.get(hull.client.configuration(), "id");
     return this.mailchimpClient
       .get(`/lists/${this.listId}/webhooks`)
       .then(({ body = {} }) => {
@@ -102,8 +102,14 @@ export default class MailchimpAgent {
       });
   }
 
-  createWebhook({ hostname, query }) {
-    const search = _.pick(query, ["organization", "ship", "secret"]);
+  createWebhook(req) {
+    const { hostname } = req;
+    const { organization, id, secret } = req.hull.client.configuration();
+    const search = {
+      organization,
+      secret,
+      ship: id
+    };
     const url = uri(`https://${hostname}/mailchimp`).search(search).toString();
 
     const hook = {
@@ -118,17 +124,16 @@ export default class MailchimpAgent {
       .then(({ body }) => body);
   }
 
-  ensureWebhookSubscription({ hostname, query }) {
+  ensureWebhookSubscription(req) {
     if (!this.listId) {
       return Promise.reject(new Error("Missing listId"));
     }
-    return this.getWebhook({ hostname, query })
-      .then(hook => {
-        if (hook) {
-          return Promise.resolve(hook)
-        }
-        return this.createWebhook({ hostname, query });
-      }).catch(err => console.warn("Error creating webhook ", { err }));
+    return this.getWebhook(req)
+      .then(hook => hook || this.createWebhook(req))
+      .catch(err => {
+        console.warn("Error creating webhook ", err.message);
+        return Promise.reject(this.mailchimpClient.handleError(err));
+      });
   }
 
 }

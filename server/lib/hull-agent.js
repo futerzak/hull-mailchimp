@@ -67,7 +67,7 @@ export default class HullAgent {
   }
 
   getUsersToAddToList(users) {
-    return users.filter(u => this.userComplete(u) /* && !this.userAdded(u) */
+    return users.filter(u => this.userComplete(u) && !this.userWithError(u)
       && this.userWhitelisted(u));
   }
 
@@ -83,6 +83,10 @@ export default class HullAgent {
   userAdded(user) {
     return !_.isEmpty(user["traits_mailchimp/unique_email_id"])
       || !_.isEmpty(user["traits_mailchimp/import_error"]);
+  }
+
+  userWithError(user) {
+    return !_.isEmpty(user["traits_mailchimp/import_error"])
   }
 
   userWhitelisted(user) {

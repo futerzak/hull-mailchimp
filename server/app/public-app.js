@@ -5,7 +5,7 @@ import bodyParser from "body-parser";
 import { NotifHandler, Routes } from "hull";
 
 import oauth from "../lib/oauth-client";
-import QueueAgentMiddleware from "../lib/middlewares/queue-agent";
+import QueueAgentMiddleware from "../util/queue/queue-agent-middleware";
 
 import WebKueRouter from "../router/web-kue-router";
 

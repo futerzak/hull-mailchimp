@@ -61,6 +61,7 @@
     "moment": "^2.14.1",
     "newrelic": "^1.28.3",
     "object-mapper": "^3.0.1",
+    "omit-deep-lodash": "^0.8.0",
     "promise-streams": "^1.0.1",
     "raven": "^0.12.1",
     "request": "^2.72.0",
