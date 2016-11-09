@@ -47,7 +47,9 @@ export default class MailchimpBatchAgent {
         return this.queueAgent.create("handleMailchimpBatchJob", { batchId: id, jobs, chunkSize }, { delay: process.env.MAILCHIMP_BATCH_HANDLER_INTERVAL || 10000 });
       })
       .catch(err => {
-        return this.hullClient.logger.error("mailchimpBatchAgent.create.error", err);
+        const filteredError = this.mailchimpClient.handleError(err);
+        this.hullClient.logger.error("mailchimpBatchAgent.create.error", filteredError.message);
+        return Promise.reject(filteredError);
       });
   }
 
