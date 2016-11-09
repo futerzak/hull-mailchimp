@@ -81,12 +81,11 @@ export default class HullAgent {
   }
 
   userAdded(user) {
-    return !_.isEmpty(user["traits_mailchimp/unique_email_id"])
-      || !_.isEmpty(user["traits_mailchimp/import_error"]);
+    return !_.isEmpty(user["traits_mailchimp/unique_email_id"]);
   }
 
   userWithError(user) {
-    return !_.isEmpty(user["traits_mailchimp/import_error"])
+    return !_.isEmpty(user["traits_mailchimp/import_error"]);
   }
 
   userWhitelisted(user) {

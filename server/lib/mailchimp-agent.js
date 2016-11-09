@@ -57,7 +57,7 @@ export default class MailchimpAgent {
 
   saveToAudiences(users, concurrency = 3) {
     const req = _.reduce(users, (ops, user) => {
-      const audienceIds = user.segment_ids.map(s => this.segmentsMappingAgent.getAudienceId(s));
+      const audienceIds = _.filter(user.segment_ids.map(s => this.segmentsMappingAgent.getAudienceId(s)));
       const removedAudienceIds = _.get(user, "remove_segment_ids", []).map(s => this.segmentsMappingAgent.getAudienceId(s));
 
       _.map(audienceIds, audienceId => {
@@ -83,7 +83,11 @@ export default class MailchimpAgent {
       return () => {
         return this.mailchimpClient
           .post(`/lists/${this.listId}/segments/${audienceId}`)
-          .send(operation);
+          .send(operation)
+          .catch(err => {
+            console.warn("Error modyfing static segments", err.message);
+            return Promise.reject(this.mailchimpClient.handleError(err));
+          });
       };
     });
 

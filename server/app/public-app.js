@@ -47,6 +47,11 @@ export default function Server({ queueAdapter, hostSecret, hullMiddleware, contr
     });
   });
 
+  /**
+   * Queue SyncOut and SyncIn jobs here. We cannot guarantee the order
+   * of these operations to be finished since both of them include
+   * requesting userbase extract from Hull API and Mailchimp API.
+   */
   app.post("/sync", QueueAgentMiddleware({ queueAdapter }), (req, res) => {
     res.end("ok");
     req.shipApp.queueAgent.create("syncOutJob");

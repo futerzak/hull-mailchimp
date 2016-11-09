@@ -77,7 +77,9 @@ export default class SegmentsAgent {
       return this.getMailchimpSegments()
         .then((res) => {
           const { segments } = res.body;
-          const existingMailchimpSegment = _.find(segments, { name: segment.name });
+          const existingMailchimpSegment = _.find(segments, (staticSegment) => {
+            return segment.name.toLowerCase() === staticSegment.name.toLowerCase();
+          });
           return _.get(existingMailchimpSegment, "id");
         });
     })()

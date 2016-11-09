@@ -14,12 +14,11 @@ export default class SyncController {
     client.logger.info("request.sync.start");
 
     return segmentsMappingAgent.syncSegments()
-      .then(hullAgent.getSegments.bind(hullAgent))
+      .then(() => interestsMappingAgent.syncInterests())
+      .then(() => hullAgent.getSegments())
       .then(segments => {
-        return Promise.all(segments.map(segment => interestsMappingAgent.recreateSegment(segment)))
-          .then(() => {
-            return segmentsMappingAgent.syncSegments(segments);
-          });
+        return interestsMappingAgent.syncInterests(segments)
+          .then(() => segmentsMappingAgent.syncSegments(segments));
       })
       .then(() => {
         const fields = req.shipApp.hullAgent.getExtractFields();

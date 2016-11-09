@@ -122,7 +122,7 @@ export default class InterestsMappingAgent {
       .query({ count: 100 })
       .then(({ body = {} }) => {
         const { interests = [] } = body;
-        return _.find(interests, { name });
+        return _.find(interests, (interest) => name.toLowerCase() === interest.name.toLowerCase());
       });
   }
 
