@@ -160,7 +160,7 @@ export default class NotifyController {
     return req.shipApp.hullAgent.getSegments()
       .then(segments => {
         return segmentsMappingAgent.syncSegments(segments)
-          .then(segmentsMappingAgent.updateMapping.bind(segmentsMappingAgent))
+          .then(() => segmentsMappingAgent.updateMapping())
           .then(() => interestsMappingAgent.ensureCategory())
           .then(() => interestsMappingAgent.syncInterests(segments));
       });
