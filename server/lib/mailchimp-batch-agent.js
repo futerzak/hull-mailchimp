@@ -61,7 +61,7 @@ export default class MailchimpBatchAgent {
       .then((response) => {
         const batchInfo = response.body;
         this.hullClient.logger.info("mailchimpBatchAgent.handleBatch", _.omit(batchInfo, "_links"));
-        if (batchInfo.status !== "finished") {
+        if (batchInfo.status !== "finished" && attempt < 6000) {
           attempt++;
           return this.queueAgent.create("handleMailchimpBatchJob", {
             batchId, attempt, jobs, chunkSize
