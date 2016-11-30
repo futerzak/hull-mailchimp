@@ -80,7 +80,11 @@ export default class BatchController {
       })
       .then(() => {
         return mailchimpAgent.saveToAudiences(usersToAddOrRemove);
-      });
+      })
+      .catch((err = {}) => {
+        console.log("sendUsersJob.error", err.message);
+        return Promise.reject(err);
+      });;
   }
 
   updateUsersJob({ payload = [], shipApp = {}, hull }) {
