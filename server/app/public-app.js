@@ -5,15 +5,14 @@ import bodyParser from "body-parser";
 import { NotifHandler, Routes } from "hull";
 
 import oauth from "../lib/oauth-client";
-import QueueAgentMiddleware from "../lib/middlewares/queue-agent";
-import controller from "../controller";
+import QueueAgentMiddleware from "../util/queue/queue-agent-middleware";
 
 import WebKueRouter from "../router/web-kue-router";
 
-const { notifyController, batchController, mailchimpWebhookController } = controller;
-
-export default function Server({ queueAdapter, hostSecret, hullMiddleware }) {
+export default function Server({ queueAdapter, hostSecret, hullMiddleware, controllers }) {
   const app = express();
+
+  const { notifyController, batchController, mailchimpWebhookController } = controllers;
 
   app.use(express.static(path.resolve(__dirname, "..", "..", "dist")));
   app.use(express.static(path.resolve(__dirname, "..", "..", "assets")));
@@ -48,6 +47,11 @@ export default function Server({ queueAdapter, hostSecret, hullMiddleware }) {
     });
   });
 
+  /**
+   * Queue SyncOut and SyncIn jobs here. We cannot guarantee the order
+   * of these operations to be finished since both of them include
+   * requesting userbase extract from Hull API and Mailchimp API.
+   */
   app.post("/sync", QueueAgentMiddleware({ queueAdapter }), (req, res) => {
     res.end("ok");
     req.shipApp.queueAgent.create("syncOutJob");

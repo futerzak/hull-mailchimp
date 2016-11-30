@@ -1,3 +1,4 @@
+import Promise from "bluebird";
 
 export default class SyncController {
 
@@ -13,10 +14,11 @@ export default class SyncController {
     client.logger.info("request.sync.start");
 
     return segmentsMappingAgent.syncSegments()
-      .then(hullAgent.getSegments.bind(hullAgent))
+      .then(() => interestsMappingAgent.syncInterests())
+      .then(() => hullAgent.getSegments())
       .then(segments => {
-        segments.map(segment => interestsMappingAgent.recreateSegment(segment))
-        return segmentsMappingAgent.syncSegments(segments);
+        return interestsMappingAgent.syncInterests(segments)
+          .then(() => segmentsMappingAgent.syncSegments(segments));
       })
       .then(() => {
         const fields = req.shipApp.hullAgent.getExtractFields();
@@ -30,12 +32,18 @@ export default class SyncController {
    */
   syncInJob(req) {
     const { mailchimpBatchAgent, mailchimpAgent } = req.shipApp;
+    const exclude = [
+      "_links",
+      "members._links",
+    ];
     const op = {
       method: "GET",
       path: `/lists/${mailchimpAgent.listId}/members`,
-      operation_id: JSON.stringify({ jobs: ["importUsersJob"], data: {} })
+      params: {
+        exclude_fields: exclude.join(",")
+      }
     };
-    return mailchimpBatchAgent.create([op]);
+    return mailchimpBatchAgent.create([op], ["importUsersJob"], 1);
   }
 
 }

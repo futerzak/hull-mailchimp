@@ -2,11 +2,11 @@ import Promise from "bluebird";
 import moment from "moment";
 import _ from "lodash";
 import crypto from "crypto";
-import * as helper from "./mailchimp-batch-helper";
 
 /**
  * EventsAgent has methods to query Mailchimp for data relevant
  * for Hull Track API.
+ * TODO: integrate with MailchmpAgent and SyncAgent
  */
 export default class EventsAgent {
 
@@ -82,12 +82,10 @@ export default class EventsAgent {
    * @param  {Array} campaigns
    * @return {Promise}
    */
-  getEmailActivities(campaigns, jobs = []) {
+  getEmailActivities(campaigns) {
     this.hull.logger.info("getEmailActivities", campaigns);
     return campaigns.map(c => {
-      const operation_id = helper.getOperationId(jobs, { campaign: c });
       return {
-        operation_id,
         method: "get",
         path: `/reports/${c.id}/email-activity/`,
         query: { fields: "emails.email_address,emails.activity" },
@@ -96,10 +94,10 @@ export default class EventsAgent {
   }
 
   getEmailsToExtract(mailchimpRes) {
-    const chunk = mailchimpRes.reduce((emails, mailchimpData) => {
-      const { response, data } = mailchimpData;
+    const chunk = mailchimpRes.reduce((emails, response) => {
+      // const { response, data } = mailchimpData;
       const campaignEmails = response.emails.map(e => {
-        e.campaign_send_time = data.campaign.send_time;
+        // e.campaign_send_time = data.campaign.send_time;
         return e;
       });
       emails = _.concat(emails, campaignEmails);
@@ -151,16 +149,14 @@ export default class EventsAgent {
    * [{ email_address, id, [[email_id,] "traits_mailchimp/latest_activity_at"] }]
    * @return {Promise}
    */
-  getMemberActivitiesOperations(emails, jobs = []) {
+  getMemberActivitiesOperations(emails) {
     this.hull.logger.info("getMemberActivities", emails.length);
     const emailIds = emails.map(e => {
       e.email_id = e.email_id || this.getEmailId(e.email);
       return e;
     });
     const queries = _.uniqWith(emailIds.map(e => {
-      const operation_id = helper.getOperationId(jobs, { email: e });
       return {
-        operation_id,
         method: "get",
         path: `/lists/${this.listId}/members/${e.email_id}/activity`,
       };

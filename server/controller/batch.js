@@ -65,7 +65,7 @@ export default class BatchController {
    */
   sendUsersJob(req) {
     const { users } = req.payload;
-    const { hullAgent, mailchimpAgent, queueAgent } = req.shipApp;
+    const { hullAgent, mailchimpAgent, queueAgent, segmentsMappingAgent, interestsMappingAgent } = req.shipApp;
 
     const usersToAddToList = hullAgent.getUsersToAddToList(users);
     const usersToAddOrRemove = hullAgent.usersToAddOrRemove(users);
@@ -74,9 +74,24 @@ export default class BatchController {
       usersToAddToList: usersToAddToList.length
     });
 
-    return mailchimpAgent.addToList(usersToAddToList)
+    return mailchimpAgent.ensureWebhookSubscription(req)
+      .then(() => {
+        return hullAgent.getSegments();
+      })
+      .then(segments => {
+        return segmentsMappingAgent.syncSegments(segments)
+          .then(() => segmentsMappingAgent.updateMapping())
+          .then(() => interestsMappingAgent.ensureCategory())
+          .then(() => interestsMappingAgent.syncInterests(segments));
+      })
+      .then(() => {
+        return mailchimpAgent.addToList(usersToAddToList);
+      })
       .then(res => {
-        return queueAgent.create("updateUsersJob", res.body.errors);
+        if (!_.isEmpty(res.body.errors)) {
+          return queueAgent.create("updateUsersJob", res.body.errors);
+        }
+        return true;
       })
       .then(() => {
         return mailchimpAgent.saveToAudiences(usersToAddOrRemove);
@@ -84,7 +99,7 @@ export default class BatchController {
       .catch((err = {}) => {
         console.log("sendUsersJob.error", err.message);
         return Promise.reject(err);
-      });;
+      });
   }
 
   updateUsersJob({ payload = [], shipApp = {}, hull }) {
@@ -102,12 +117,11 @@ export default class BatchController {
 
   importUsersJob(req) {
     const { hullAgent } = req.shipApp;
-    return req.payload.map(({ response = {} }) => {
-      const { members = [] } = response;
-      req.hull.client.logger.info("importUsersJob", members.length);
-      return members.map(member => {
-        return hullAgent.updateUser(member);
-      });
+    req.hull.client.logger.info("importUsersJob", req.payload.members.length);
+    const { members = [] } = req.payload;
+    req.hull.client.logger.info("importUsersJob", members.length);
+    return members.map(member => {
+      return hullAgent.updateUser(member);
     });
   }
 }

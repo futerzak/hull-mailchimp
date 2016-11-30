@@ -3,7 +3,7 @@ import { Router } from "express";
 import bodyParser from "body-parser";
 import oauth2Factory from "simple-oauth2";
 import rp from "request-promise";
-import TokenMiddleware from "../lib/middlewares/token";
+import TokenMiddleware from "../util/token-middleware";
 
 export default function oauth({
   name, clientID, clientSecret,

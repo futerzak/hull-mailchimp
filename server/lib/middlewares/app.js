@@ -2,7 +2,7 @@ import MailchimpClient from "../mailchimp-client";
 import MailchimpAgent from "../mailchimp-agent";
 import HullAgent from "../hull-agent";
 import ExtractAgent from "../extract-agent";
-import QueueAgent from "../queue/queue-agent";
+import QueueAgent from "../../util/queue/queue-agent";
 import EventsAgent from "../events-agent";
 import MailchimpBatchAgent from "../mailchimp-batch-agent";
 import SegmentsMappingAgent from "../segments-mapping-agent";

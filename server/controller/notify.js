@@ -1,6 +1,6 @@
 import Promise from "bluebird";
 import _ from "lodash";
-import BatchSyncHandler from "../lib/batch-sync-handler";
+import BatchSyncHandler from "../util/batch-sync-handler";
 
 export default class NotifyController {
 
@@ -113,6 +113,10 @@ export default class NotifyController {
       segmentsMappingAgent
     ];
 
+    /**
+     * FIXME: when we recreate segments on it's update we break mailchimp
+     * automation because of changing segments and interests ids
+     */
     return Promise.mapSeries(
       agents,
       agent => agent.recreateSegment(segment)
@@ -156,7 +160,7 @@ export default class NotifyController {
     return req.shipApp.hullAgent.getSegments()
       .then(segments => {
         return segmentsMappingAgent.syncSegments(segments)
-          .then(segmentsMappingAgent.updateMapping.bind(segmentsMappingAgent))
+          .then(() => segmentsMappingAgent.updateMapping())
           .then(() => interestsMappingAgent.ensureCategory())
           .then(() => interestsMappingAgent.syncInterests(segments));
       });

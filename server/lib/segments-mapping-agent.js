@@ -4,6 +4,7 @@ import Promise from "bluebird";
 /**
  * Agent managing Mailchimp static segments aka audiences
  * and mapping stored in ships private settings
+ * TODO: integrate with SyncAgent
  */
 export default class SegmentsAgent {
 
@@ -54,7 +55,7 @@ export default class SegmentsAgent {
   }
 
   recreateSegment(segment) {
-    const steps = [ 'deleteSegment', 'createSegment', 'updateMapping' ];
+    const steps = ["deleteSegment", "createSegment", "updateMapping"];
     return Promise.mapSeries(
       steps,
       step => this[step](segment)
@@ -76,7 +77,9 @@ export default class SegmentsAgent {
       return this.getMailchimpSegments()
         .then((res) => {
           const { segments } = res.body;
-          const existingMailchimpSegment = _.find(segments, { name: segment.name });
+          const existingMailchimpSegment = _.find(segments, (staticSegment) => {
+            return segment.name.toLowerCase() === staticSegment.name.toLowerCase();
+          });
           return _.get(existingMailchimpSegment, "id");
         });
     })()

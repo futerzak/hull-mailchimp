@@ -2,7 +2,7 @@ import Supply from "supply";
 import Promise from "bluebird";
 
 import AppMiddleware from "../lib/middlewares/app";
-import TokenMiddleware from "../lib/middlewares/token";
+import TokenMiddleware from "../util/token-middleware";
 
 export default class WorkerApp {
   constructor({ queueAdapter, hostSecret, hullMiddleware, instrumentationAgent }) {

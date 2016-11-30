@@ -1,3 +1,4 @@
+import util from "util";
 import raven from "raven";
 
 export default class InstrumentationAgent {
@@ -30,9 +31,17 @@ export default class InstrumentationAgent {
     }
   }
 
-  catchError(err, extra = {}) {
+  catchError(err, extra = {}, tags = {}) {
     if (this.raven && err) {
-      this.raven.captureException(err, { extra });
+      return this.raven.captureException(err, {
+        extra,
+        tags,
+        fingerprint: [
+          "{{ default }}",
+          err.message
+        ]
+      });
     }
+    return console.error(util.inspect(err, { depth: 10 }));
   }
 }

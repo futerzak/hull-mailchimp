@@ -4,6 +4,7 @@ import Promise from "bluebird";
 /**
  * Agent managing Mailchimp interests aka groups
  * and mapping stored in ships private settings
+ * TODO: integrate with SyncAgent
  */
 
 export default class InterestsMappingAgent {
@@ -121,7 +122,7 @@ export default class InterestsMappingAgent {
       .query({ count: 100 })
       .then(({ body = {} }) => {
         const { interests = [] } = body;
-        return _.find(interests, { name });
+        return _.find(interests, (interest) => name.toLowerCase() === interest.name.toLowerCase());
       });
   }
 
@@ -136,7 +137,11 @@ export default class InterestsMappingAgent {
       }, ({ status, response = {} }) => {
         const { body = {} } = response;
         if (status === 400 && body.detail && body.detail.match('already exists')) {
-          return this.findInterest(segment);
+          return this.findInterest(segment)
+            .then(interest => {
+              this.mapping[segment.id] = interest.id;
+              return interest;
+            });
         }
         throw new Error(body.detail);
       });

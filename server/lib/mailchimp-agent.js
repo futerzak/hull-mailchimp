@@ -3,8 +3,6 @@ import _ from "lodash";
 import uri from "urijs";
 import Promise from "bluebird";
 
-import * as helper from "./mailchimp-batch-helper";
-
 /**
  * Class responsible for working on data in Mailchimp
  */
@@ -34,7 +32,6 @@ export default class MailchimpAgent {
 
   addToList(users) {
     const members = users.map(user => {
-      const hash = this.getEmailHash(user.email);
       const segment_ids = _.difference((user.segment_ids || []), (user.remove_segment_ids || []));
 
       // TODO: investigate on custom merge fields strategies
@@ -60,8 +57,7 @@ export default class MailchimpAgent {
 
   saveToAudiences(users, concurrency = 3) {
     const req = _.reduce(users, (ops, user) => {
-      const listId = this.listId;
-      const audienceIds = user.segment_ids.map(s => this.segmentsMappingAgent.getAudienceId(s));
+      const audienceIds = _.filter(user.segment_ids.map(s => this.segmentsMappingAgent.getAudienceId(s)));
       const removedAudienceIds = _.get(user, "remove_segment_ids", []).map(s => this.segmentsMappingAgent.getAudienceId(s));
 
       _.map(audienceIds, audienceId => {
@@ -87,20 +83,19 @@ export default class MailchimpAgent {
       return () => {
         return this.mailchimpClient
           .post(`/lists/${this.listId}/segments/${audienceId}`)
-          .send(operation);
+          .send(operation)
+          .catch(err => {
+            console.warn("Error modyfing static segments", err.message);
+            return Promise.reject(this.mailchimpClient.handleError(err));
+          });
       };
     });
 
     return Promise.map(promises, (p) => p(), { concurrency });
   }
 
-  getUsersFromOperations(operations) {
-    const users = operations.map(op => op.data.user);
-    return users;
-  }
-
-  getWebhook({ hostname, query }) {
-    const { ship } = query;
+  getWebhook({ hostname, hull }) {
+    const ship = _.get(hull.client.configuration(), "id");
     return this.mailchimpClient
       .get(`/lists/${this.listId}/webhooks`)
       .then(({ body = {} }) => {
@@ -111,8 +106,14 @@ export default class MailchimpAgent {
       });
   }
 
-  createWebhook({ hostname, query }) {
-    const search = _.pick(query, ["organization", "ship", "secret"]);
+  createWebhook(req) {
+    const { hostname } = req;
+    const { organization, id, secret } = req.hull.client.configuration();
+    const search = {
+      organization,
+      secret,
+      ship: id
+    };
     const url = uri(`https://${hostname}/mailchimp`).search(search).toString();
 
     const hook = {
@@ -127,15 +128,16 @@ export default class MailchimpAgent {
       .then(({ body }) => body);
   }
 
-  ensureWebhookSubscription({ hostname, query }) {
+  ensureWebhookSubscription(req) {
     if (!this.listId) {
       return Promise.reject(new Error("Missing listId"));
     }
-    return this.getWebhook({ hostname, query }).then(
-      hook => {
-        return hook || this.createWebhook({ hostname, query });
-      }
-    ).catch(err => console.warn("Error creating webhook ", { err }));
+    return this.getWebhook(req)
+      .then(hook => hook || this.createWebhook(req))
+      .catch(err => {
+        console.warn("Error creating webhook ", err.message);
+        return Promise.reject(this.mailchimpClient.handleError(err));
+      });
   }
 
 }
