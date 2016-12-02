@@ -79,9 +79,10 @@ export default class MailchimpClient {
 
     return decoder
       .pipe(es.map(function write(data, callback) {
-        return data.map(r => {
-          return callback(null, r);
-        });
+        if (_.isEmpty(data)) {
+          return callback();
+        }
+        return data.map(r => callback(null, r));
       }));
   }
 
