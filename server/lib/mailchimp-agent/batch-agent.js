@@ -2,6 +2,7 @@ import Promise from "bluebird";
 import _ from "lodash";
 import ps from "promise-streams";
 import BatchStream from "batch-stream";
+import es from "event-stream";
 // import omitDeep from "omit-deep-lodash";
 
 
@@ -23,7 +24,7 @@ export default class MailchimpBatchAgent {
    * to handle the results
    * @api
    */
-  create(operations, jobs = [], chunkSize = null) {
+  create(operations, jobs = [], chunkSize = null, responseField) {
     if (_.isEmpty(operations)) {
       return Promise.resolve([]);
     }
@@ -44,7 +45,7 @@ export default class MailchimpBatchAgent {
           return Promise.resolve();
         }
 
-        return this.queueAgent.create("handleMailchimpBatch", { batchId: id, jobs, chunkSize }, { delay: process.env.MAILCHIMP_BATCH_HANDLER_INTERVAL || 10000 });
+        return this.queueAgent.create("handleMailchimpBatch", { batchId: id, jobs, chunkSize, responseField }, { delay: process.env.MAILCHIMP_BATCH_HANDLER_INTERVAL || 10000 });
       })
       .catch(err => {
         const filteredError = this.mailchimpClient.handleError(err);
@@ -57,7 +58,7 @@ export default class MailchimpBatchAgent {
    * checks if the batch is finished
    * @api
    */
-  handle(batchId, attempt, jobs = [], chunkSize) {
+  handle(batchId, attempt, jobs = [], chunkSize, responseField) {
     return this.mailchimpClient
       .get(`/batches/${batchId}`)
       .then((response) => {
@@ -66,7 +67,7 @@ export default class MailchimpBatchAgent {
         if (batchInfo.status !== "finished" && attempt < 6000) {
           attempt++;
           return this.queueAgent.create("handleMailchimpBatch", {
-            batchId, attempt, jobs, chunkSize
+            batchId, attempt, jobs, chunkSize, responseField
           }, {
             delay: process.env.MAILCHIMP_BATCH_HANDLER_INTERVAL || 10000
           });
@@ -78,16 +79,24 @@ export default class MailchimpBatchAgent {
         }
 
         return this.mailchimpClient.handleResponse(batchInfo)
+          /**
+           * data is {"status_code":200,"operation_id":"id","response":"encoded_json"}
+           */
+          .pipe(es.map(function write(data, callback) {
+            let responseObj = {};
+            try {
+              responseObj = JSON.parse(data.response);
+            } catch (e) {}
+            if (_.isEmpty(data) || !_.get(responseObj, responseField)) {
+              return callback();
+            }
+            return _.get(responseObj, responseField, []).map(r => callback(null, r));
+          }))
           .pipe(new BatchStream({ size: chunkSize }))
           .pipe(ps.map((ops) => {
             try {
-              console.log("JOBS", jobs);
-              let responseObj = {};
-              try {
-                responseObj = _.omit(JSON.parse(ops[0].response), "_links");
-              } catch (e) {} // eslint-disable-line no-empty
               return Promise.all(_.map(jobs, (job) => {
-                return this.queueAgent.create(job, responseObj);
+                return this.queueAgent.create(job, ops);
               }));
             } catch (e) {
               console.error(e);
