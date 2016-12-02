@@ -9,8 +9,9 @@ export default class KueAdapter {
   /**
    * @param {Object} queue Kue instance
    */
-  constructor(queue) {
-    this.queue = queue;
+  constructor(options) {
+    this.options = options;
+    this.queue = kue.createQueue(options);
     this.queue.watchStuckJobs();
     this.app = kue.app;
   }
@@ -20,7 +21,7 @@ export default class KueAdapter {
    * @param {Object} jobPayload
    * @return {Promise}
    */
-  create(jobName, jobPayload, { ttl = 0, delay = null } = {}) {
+  create(jobName, jobPayload = {}, { ttl = 0, delay = null, priority = null } = {}) {
     return Promise.fromCallback((callback) => {
       const job = this.queue.create(jobName, jobPayload)
         .attempts(3)
@@ -32,6 +33,10 @@ export default class KueAdapter {
 
       if (delay) {
         job.delay(delay);
+      }
+
+      if (priority) {
+        job.priority(priority);
       }
 
       return job.save((err) => {

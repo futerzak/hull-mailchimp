@@ -1,14 +1,12 @@
 import MailchimpClient from "../mailchimp-client";
 import MailchimpAgent from "../mailchimp-agent";
-import HullAgent from "../hull-agent";
-import ExtractAgent from "../extract-agent";
+import HullAgent from "../../util/hull-agent";
 import QueueAgent from "../../util/queue/queue-agent";
-import EventsAgent from "../events-agent";
-import MailchimpBatchAgent from "../mailchimp-batch-agent";
-import SegmentsMappingAgent from "../segments-mapping-agent";
-import InterestsMappingAgent from "../interests-mapping-agent";
+// import EventsAgent from "../events-agent";
 
-export default function ({ queueAdapter }) {
+import SyncAgent from "../sync-agent";
+
+export default function ({ queueAdapter, shipCache }) {
   return function middleware(req, res, next) {
     req.shipApp = req.shipApp || {};
 
@@ -18,25 +16,20 @@ export default function ({ queueAdapter }) {
 
     const mailchimpClient = new MailchimpClient(req.hull.ship);
 
-    const extractAgent = new ExtractAgent(req, req.hull.client);
     const queueAgent = new QueueAgent(queueAdapter, req);
-    const segmentsMappingAgent = new SegmentsMappingAgent(mailchimpClient, req.hull.client, req.hull.ship);
-    const interestsMappingAgent = new InterestsMappingAgent(mailchimpClient, req.hull.client, req.hull.ship);
-    const mailchimpAgent = new MailchimpAgent(mailchimpClient, req.hull.ship, segmentsMappingAgent, interestsMappingAgent, req.hull.client);
-    const hullAgent = new HullAgent(req.hull.ship, req.hull.client);
-    const mailchimpBatchAgent = new MailchimpBatchAgent(req.hull.client, mailchimpClient, queueAgent);
-    const eventsAgent = new EventsAgent(mailchimpClient, req.hull.client, req.hull.ship);
+    const mailchimpAgent = new MailchimpAgent(mailchimpClient, req.hull.ship, req.hull.client, queueAgent);
+    const hullAgent = new HullAgent(req.hull.ship, req.hull.client, shipCache, req);
+    // const eventsAgent = new EventsAgent(mailchimpClient, req.hull.client, req.hull.ship);
+
+    const syncAgent = new SyncAgent(mailchimpClient, hullAgent, req.hull.ship);
 
     req.shipApp = {
       mailchimpClient,
-      segmentsMappingAgent,
-      interestsMappingAgent,
       mailchimpAgent,
       hullAgent,
       queueAgent,
-      extractAgent,
-      mailchimpBatchAgent,
-      eventsAgent
+      // eventsAgent,
+      syncAgent
     };
 
     return next();

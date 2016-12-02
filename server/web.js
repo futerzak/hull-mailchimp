@@ -1,30 +1,29 @@
-import Hull from "hull";
+import WebApp from "./util/app/web";
+import ExitHandler from "./util/handler/exit";
+import BatchSyncHandler from "./util/handler/batch-sync";
+import StaticRouter from "./util/router/static";
+import KueRouter from "./util/router/kue";
 
-import PublicApp from "./app/public-app";
-import { hostSecret, queueAdapter, controllers, instrumentationAgent } from "./bootstrap";
+import * as bootstrap from "./bootstrap";
+import AppRouter from "./router/app";
+import OAuthRouter from "./router/oauth";
 
-/**
- * We need shared instance of Hull client middleware
- * because in its factory there is a caching object
- * which we need to share between PublicApp and WorkerApp.
- * Right now the refresh of ship settings is done in oauth client.
- * Not on the ship_update event, since the notifHandler has got separate
- * instance.
- * @type {Object}
- */
-const hullMiddleware = Hull.Middleware({
-  hostSecret,
-  useCache: true,
-  fetchShip: true
+const { instrumentationAgent } = bootstrap;
+
+const port = process.env.PORT || 8082;
+
+const app = WebApp();
+
+app
+  .use(instrumentationAgent.startMiddleware())
+  .use("/", AppRouter(bootstrap))
+  .use("/", StaticRouter(bootstrap))
+  .use("/auth", OAuthRouter(bootstrap))
+  .use("/kue", KueRouter(bootstrap))
+  .use(instrumentationAgent.stopMiddleware());
+
+app.listen(port, () => {
+  bootstrap.Hull.logger.info("webApp.listen", port);
 });
 
-const PORT = process.env.PORT || 8082;
-console.warn(`Starting on PORT ${PORT}`);
-
-PublicApp({
-  queueAdapter,
-  hostSecret,
-  hullMiddleware,
-  instrumentationAgent,
-  controllers
-}).listen(PORT);
+ExitHandler(BatchSyncHandler.exit.bind(BatchSyncHandler));
