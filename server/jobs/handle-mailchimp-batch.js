@@ -5,7 +5,5 @@
  * @return {Promise}
  */
 export default function handleMailchimpBatch(req) {
-  const { batchId, attempt = 1, jobs = [], chunkSize, responseField } = req.payload;
-
-  return req.shipApp.mailchimpAgent.batchAgent.handle(batchId, attempt, jobs, chunkSize, responseField);
+  return req.shipApp.mailchimpAgent.batchAgent.handle(req.payload);
 }

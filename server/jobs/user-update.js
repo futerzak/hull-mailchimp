@@ -47,10 +47,9 @@ export default function userUpdateHandlerJob(req) {
     promises.push(queueAgent.create("sendUsers", { users }));
   }
 
-  // TODO re-enable events tracking
-  // if (usersToTrack.length > 0) {
-  //   promises.push(queueAgent.create("trackUsersJob", { users: usersToTrack }));
-  // }
+  if (usersToTrack.length > 0) {
+    promises.push(queueAgent.create("trackUsers", { users: usersToTrack }));
+  }
 
   return Promise.all(promises);
 }

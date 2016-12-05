@@ -8,6 +8,7 @@ import _ from "lodash";
 export default function responseMiddleware(result, req, res, next) {
   if (_.isError(result)) {
     res.status(500);
+    console.error(result);
   } else {
     res.status(200);
   }

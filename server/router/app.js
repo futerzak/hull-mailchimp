@@ -38,9 +38,9 @@ export default function AppRouter(deps) {
     shipCache
   }));
   router.post("/sync", ...middlewareSet, actions.sync, responseMiddleware);
-  router.post("/requestTrack", ...middlewareSet, actions.requestTrack, responseMiddleware);
+  router.post("/track", ...middlewareSet, actions.track, responseMiddleware);
 
-  router.use("/mailchimp", hullMiddleware, appMiddleware, bodyParser.urlencoded({ extended: true }), actions.webhook);
+  router.use("/mailchimp", hullMiddleware, appMiddleware, requireConfiguration, bodyParser.urlencoded({ extended: true }), actions.webhook);
 
   return router;
 }

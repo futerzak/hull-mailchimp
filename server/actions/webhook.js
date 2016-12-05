@@ -1,4 +1,3 @@
-import _ from "lodash";
 
 export default function handleAction(req, res) {
   const { body = {}, method = "" } = req;
@@ -9,12 +8,6 @@ export default function handleAction(req, res) {
   }
 
   const { type, data } = body;
-  const listId = _.get(req, "hull.ship.private_settings.mailchimp_list_id");
-
-  if (!listId) {
-    res.status(404);
-    return res.json({ ok: false, message: "Not found" });
-  }
 
   if (!data || !data.email) {
     res.status(404);
@@ -34,5 +27,5 @@ export default function handleAction(req, res) {
     });
   }
 
-  return res.json({ listId, ok: true });
+  return res.json({ ok: true });
 }

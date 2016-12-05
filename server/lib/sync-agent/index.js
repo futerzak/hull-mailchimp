@@ -4,6 +4,7 @@ import Promise from "bluebird";
 import SegmentsMappingAgent from "./segments-mapping-agent";
 import InterestsMappingAgent from "./interests-mapping-agent";
 import UserMappingAgent from "./user-mapping-agent";
+import EventsAgent from "./events-agent";
 
 export default class SyncAgent {
 
@@ -16,6 +17,7 @@ export default class SyncAgent {
     this.segmentsMappingAgent = new SegmentsMappingAgent(mailchimpClient, hullAgent, ship);
     this.interestsMappingAgent = new InterestsMappingAgent(mailchimpClient, hullAgent, ship);
     this.userMappingAgent = new UserMappingAgent(ship, hullAgent.hullClient);
+    this.eventsAgent = new EventsAgent(mailchimpClient, hullAgent.hullClient, ship);
   }
 
   isConfigured() {

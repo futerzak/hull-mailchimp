@@ -24,13 +24,17 @@ export default class MailchimpBatchAgent {
    * to handle the results
    * @api
    */
-  create(operations, jobs = [], chunkSize = null, responseField) {
+  create(options) {
+    _.defaults(options, {
+      chunkSize: process.env.MAILCHIMP_BATCH_HANDLER_SIZE || 100,
+      additionalData: {},
+      extractField: null
+    });
+
+    const { operations, jobs = [] } = options;
+
     if (_.isEmpty(operations)) {
       return Promise.resolve([]);
-    }
-
-    if (chunkSize == null) {
-      chunkSize = process.env.MAILCHIMP_BATCH_HANDLER_SIZE || 100;
     }
 
     return this.mailchimpClient
@@ -44,8 +48,8 @@ export default class MailchimpBatchAgent {
         if (_.isEmpty(jobs)) {
           return Promise.resolve();
         }
-
-        return this.queueAgent.create("handleMailchimpBatch", { batchId: id, jobs, chunkSize, responseField }, { delay: process.env.MAILCHIMP_BATCH_HANDLER_INTERVAL || 10000 });
+        options.batchId = id;
+        return this.queueAgent.create("handleMailchimpBatch", options, { delay: process.env.MAILCHIMP_BATCH_HANDLER_INTERVAL || 10000 });
       })
       .catch(err => {
         const filteredError = this.mailchimpClient.handleError(err);
@@ -58,17 +62,16 @@ export default class MailchimpBatchAgent {
    * checks if the batch is finished
    * @api
    */
-  handle(batchId, attempt, jobs = [], chunkSize, responseField) {
+  handle(options) {
+    const { batchId, attempt = 1, jobs = [], chunkSize, extractField, additionalData } = options;
     return this.mailchimpClient
       .get(`/batches/${batchId}`)
       .then((response) => {
         const batchInfo = response.body;
         this.hullClient.logger.info("mailchimpBatchAgent.handleBatch", _.omit(batchInfo, "_links"));
         if (batchInfo.status !== "finished" && attempt < 6000) {
-          attempt++;
-          return this.queueAgent.create("handleMailchimpBatch", {
-            batchId, attempt, jobs, chunkSize, responseField
-          }, {
+          options.attempt++;
+          return this.queueAgent.create("handleMailchimpBatch", options, {
             delay: process.env.MAILCHIMP_BATCH_HANDLER_INTERVAL || 10000
           });
         }
@@ -86,17 +89,23 @@ export default class MailchimpBatchAgent {
             let responseObj = {};
             try {
               responseObj = JSON.parse(data.response);
-            } catch (e) {}
-            return _.get(responseObj, responseField, []).map(r => {
-              this.emit('data', r);
-            });
+            } catch (e) {} // eslint-disable-line no-empty
+            if (_.get(responseObj, extractField)) {
+              return _.get(responseObj, extractField, []).map(r => {
+                return this.emit("data", r);
+              });
+            }
+            return this.emit("data", responseObj);
           }))
           .pipe(new BatchStream({ size: chunkSize }))
           .pipe(ps.map((ops) => {
             try {
               return Promise.all(_.map(jobs, (job) => {
                 console.log("JOB", job, ops.length);
-                return this.queueAgent.create(job, ops);
+                return this.queueAgent.create(job, {
+                  response: ops,
+                  additionalData
+                });
               }));
             } catch (e) {
               console.error(e);

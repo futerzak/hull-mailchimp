@@ -12,45 +12,10 @@ export default class EventsAgent {
 
   constructor(mailchimpClient, hull, ship) {
     this.client = mailchimpClient;
+    this.mailchimpClient = mailchimpClient;
     this.hull = hull;
     this.listId = _.get(ship, "private_settings.mailchimp_list_id");
     this.listName = _.get(ship, "private_settings.mailchimp_list_name");
-  }
-
-  /**
-   * Takes prepares requestExtract elastic search query to select users
-   * which should be updated with events.
-   * It build an OR clause of provided email addresses with optional constraint
-   * of traits_mailchimp/latest_activity_at
-   * @param  {Array} emails
-   * @return {Object}
-   */
-  buildSegmentQuery(emails) {
-    const queries = emails.map(f => {
-      let time = moment(f.timestamp);
-
-      // FIXME Mailchimp - the email-activity reports sometimes returns
-      // 00:00:00 for the time part. If this is the last event, we will get stuck.
-      // This is a naive workaround push that time 24 hours ahead.
-      if (time.seconds() === 0 && time.minutes() === 0 && time.hours() === 0) {
-        time = time.add(1, "day");
-      }
-
-      // TODO: newrelic instrumentation (how much jobs running per org, how long they take, for everything)
-      // simplify it - use the last_sync property in ship settings
-      // eslint-disable-next-line object-curly-spacing, quote-props, key-spacing, comma-spacing
-      return {"and":{"filters":[{"terms":{"email.exact":[f.email_address]}},{"or":{"filters":[{"range":{"traits_mailchimp/latest_activity_at":{"lt":time.utc().format()}}},{"missing":{"field":"traits_mailchimp/latest_activity_at"}}]}}]}};
-    });
-
-    return {
-      filtered: { query: { match_all: {} },
-        filter: {
-          or: {
-            filters: queries
-          }
-        }
-      }
-    };
   }
 
   /**
@@ -82,55 +47,17 @@ export default class EventsAgent {
    * @param  {Array} campaigns
    * @return {Promise}
    */
-  getEmailActivities(campaigns) {
+  getEmailActivitiesOps(campaigns) {
     this.hull.logger.info("getEmailActivities", campaigns);
     return campaigns.map(c => {
       return {
-        method: "get",
+        method: "GET",
         path: `/reports/${c.id}/email-activity/`,
-        query: { fields: "emails.email_address,emails.activity" },
+        params: {
+          exclude_fields: "_links"
+        }
       };
     });
-  }
-
-  getEmailsToExtract(mailchimpRes) {
-    const chunk = mailchimpRes.reduce((emails, response) => {
-      // const { response, data } = mailchimpData;
-      const campaignEmails = response.emails.map(e => {
-        // e.campaign_send_time = data.campaign.send_time;
-        return e;
-      });
-      emails = _.concat(emails, campaignEmails);
-      return emails;
-    }, []);
-
-    if (_.isEmpty(chunk)) {
-      return null;
-    }
-
-    return chunk.reduce((emails, e) => {
-      const timestamps = e.activity.sort((x, y) => moment(x.timestamp) - moment(y.timestamp));
-      const timestamp = _.get(_.last(timestamps), "timestamp", e.campaign_send_time);
-
-      // if there is already same email queued remove it if its older than
-      // actual or stop if it's not
-      const existingEmail = _.findIndex(emails, ["email_address", e.email_address]);
-      if (existingEmail !== -1) {
-        if (moment(emails[existingEmail].timestamp).isSameOrBefore(timestamp)) {
-          _.pullAt(emails, [existingEmail]);
-        } else {
-          return emails;
-        }
-      }
-
-      this.hull.logger.info("runCampaignStrategy.email", { email_address: e.email_address, timestamp });
-      emails.push({
-        timestamp,
-        email_id: e.email_id,
-        email_address: e.email_address
-      });
-      return emails;
-    }, []);
   }
 
 
@@ -149,34 +76,19 @@ export default class EventsAgent {
    * [{ email_address, id, [[email_id,] "traits_mailchimp/latest_activity_at"] }]
    * @return {Promise}
    */
-  getMemberActivitiesOperations(emails) {
-    this.hull.logger.info("getMemberActivities", emails.length);
-    const emailIds = emails.map(e => {
+  getMemberActivities(users) {
+    this.hull.logger.info("getMemberActivities", users.length);
+    return Promise.map(users, e => {
       e.email_id = e.email_id || this.getEmailId(e.email);
-      return e;
-    });
-    const queries = _.uniqWith(emailIds.map(e => {
-      return {
-        method: "get",
-        path: `/lists/${this.listId}/members/${e.email_id}/activity`,
-      };
-    }), _.isEqual);
-
-    return queries;
-  }
-
-  parseMemberActivities(mailchimpResponse) {
-    return mailchimpResponse.map(({ response, data }) => {
-      response.email_address = data.email.email;
-      response.id = data.email.id;
-
-      if (data.email["traits_mailchimp/latest_activity_at"]) {
-        response.activity = (response.activity || []).filter(a => {
-          return moment(a.timestamp).utc().isAfter(data.email["traits_mailchimp/latest_activity_at"]);
+      return this.mailchimpClient
+        .get(`/lists/${this.listId}/members/${e.email_id}/activity`)
+        .query({
+          exclude_fields: "_links"
+        })
+        .then(res => {
+          return _.merge(res.body, { email_address: e.email });
         });
-      }
-      return response;
-    }).filter(e => (e.activity || []).length > 0);
+    });
   }
 
   getEmailId(email) {
@@ -209,7 +121,9 @@ export default class EventsAgent {
   trackEvents(emails) {
     this.hull.logger.info("trackEvents", emails.length);
     const emailTracks = emails.map(email => {
-      const user = this.hull.as(email.id);
+      const user = this.hull.as({
+        email: email.email_address
+      });
       return Promise.all(email.activity.map(a => {
         const uniqId = this.getUniqId({ email, activity: a });
         this.hull.logger.info("trackEvents.track", {
@@ -225,19 +139,8 @@ export default class EventsAgent {
           source: "mailchimp",
           event_id: uniqId,
           created_at: a.timestamp
-        }).then(() => a.timestamp);
-      }))
-      .then((timestamps) => {
-        if (timestamps.length === 0) {
-          return true;
-        }
-        const latest = timestamps.sort((x, y) => moment(x) - moment(y)).pop();
-        this.hull.logger.info("trackEvents.latest_activity_at", email.email_address, latest);
-
-        return user.traits({
-          latest_activity_at: moment(latest).utc()
-        }, { source: "mailchimp" });
-      });
+        });
+      }));
     });
 
     return Promise.all(emailTracks);
