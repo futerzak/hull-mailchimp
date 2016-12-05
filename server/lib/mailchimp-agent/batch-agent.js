@@ -78,24 +78,24 @@ export default class MailchimpBatchAgent {
           return Promise.resolve([]);
         }
 
+        /**
+         * data is {"status_code":200,"operation_id":"id","response":"encoded_json"}
+         */
         return this.mailchimpClient.handleResponse(batchInfo)
-          /**
-           * data is {"status_code":200,"operation_id":"id","response":"encoded_json"}
-           */
-          .pipe(es.map(function write(data, callback) {
+          .pipe(es.through(function write(data) {
             let responseObj = {};
             try {
               responseObj = JSON.parse(data.response);
             } catch (e) {}
-            if (_.isEmpty(data) || !_.get(responseObj, responseField)) {
-              return callback();
-            }
-            return _.get(responseObj, responseField, []).map(r => callback(null, r));
+            return _.get(responseObj, responseField, []).map(r => {
+              this.emit('data', r);
+            });
           }))
           .pipe(new BatchStream({ size: chunkSize }))
           .pipe(ps.map((ops) => {
             try {
               return Promise.all(_.map(jobs, (job) => {
+                console.log("JOB", job, ops.length);
                 return this.queueAgent.create(job, ops);
               }));
             } catch (e) {

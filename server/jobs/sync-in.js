@@ -14,5 +14,5 @@ export default function syncInJob(req) {
       exclude_fields: exclude.join(",")
     }
   };
-  return mailchimpAgent.batchAgent.create([op], ["importUsers"], 1, "members");
+  return mailchimpAgent.batchAgent.create([op], ["importUsers"], 200, "members");
 }
