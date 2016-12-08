@@ -13,8 +13,10 @@ export default function syncOutJob(req) {
     .then(() => syncAgent.interestsMappingAgent.syncInterests())
     .then(() => hullAgent.getSegments())
     .then(segments => {
-      return syncAgent.interestsMappingAgent.syncInterests(segments)
-        .then(() => syncAgent.segmentsMappingAgent.syncSegments(segments));
+      return syncAgent.interestsMappingAgent.ensureCategory()
+        .then(() => syncAgent.interestsMappingAgent.syncInterests(segments))
+        .then(() => syncAgent.segmentsMappingAgent.syncSegments(segments))
+        .then(() => syncAgent.segmentsMappingAgent.updateMapping());
     })
     .then(() => {
       const fields = syncAgent.userMappingAgent.getExtractFields();
