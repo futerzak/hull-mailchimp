@@ -88,7 +88,7 @@ export default class EventsAgent {
         .then(res => {
           return _.merge(res.body, { email_address: e.email });
         });
-    });
+    }, { concurrency: 3 });
   }
 
   getEmailId(email) {
