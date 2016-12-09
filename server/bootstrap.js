@@ -34,5 +34,5 @@ export const cacheManager = CacheManager.caching({
 });
 
 export const shipCache = new Hull.ShipCache(cacheManager, process.env.SHIP_CACHE_PREFIX || "hull-mailchimp-cache");
-export const hullMiddleware = new Hull.Middleware({ hostSecret: shipConfig.hostSecret, cacheManager });
+export const hullMiddleware = new Hull.Middleware({ hostSecret: shipConfig.hostSecret, shipCache });
 export const appMiddleware = new AppMiddleware({ queueAdapter, shipCache, instrumentationAgent });
