@@ -86,17 +86,26 @@ export default class UserMappingAgent {
   }
 
   updateUser(member) {
-    const traits = this.getUserTraitsForMember(member);
-    console.warn("updateUser", traits.email);
-    const { email, unique_email_id } = traits;
+    const mailchimp = this.getUserTraitsForMember(member);
+    const { email, unique_email_id } = mailchimp;
     const ident = { email };
     if (unique_email_id) {
       ident.anonymous_id = `mailchimp:${unique_email_id}`;
     }
 
+    const traits = flatten({ mailchimp }, { delimiter: "/", safe: true });
+
+    if (!_.isEmpty(mailchimp.fname)) {
+      traits.first_name = { operation: "setIfNull", value: mailchimp.fname };
+    }
+
+    if (!_.isEmpty(mailchimp.lname)) {
+      traits.last_name = { operation: "setIfNull", value: mailchimp.lname };
+    }
+
     return this.hullClient
       .as(ident)
-      .traits(traits, { source: "mailchimp" });
+      .traits(traits);
   }
 
 }
