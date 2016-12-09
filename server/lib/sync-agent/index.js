@@ -8,16 +8,17 @@ import EventsAgent from "./events-agent";
 
 export default class SyncAgent {
 
-  constructor(mailchimpClient, hullAgent, ship) {
+  constructor(mailchimpClient, hullAgent, ship, instrumentationAgent) {
     this.ship = ship;
     this.mailchimpClient = mailchimpClient;
     this.hullAgent = hullAgent;
     this.listId = _.get(ship, "private_settings.mailchimp_list_id");
+    this.instrumentationAgent = instrumentationAgent;
 
     this.segmentsMappingAgent = new SegmentsMappingAgent(mailchimpClient, hullAgent, ship);
     this.interestsMappingAgent = new InterestsMappingAgent(mailchimpClient, hullAgent, ship);
     this.userMappingAgent = new UserMappingAgent(ship, hullAgent.hullClient);
-    this.eventsAgent = new EventsAgent(mailchimpClient, hullAgent.hullClient, ship);
+    this.eventsAgent = new EventsAgent(mailchimpClient, hullAgent.hullClient, ship, instrumentationAgent);
   }
 
   isConfigured() {

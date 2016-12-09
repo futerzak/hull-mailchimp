@@ -10,9 +10,10 @@ import crypto from "crypto";
  */
 export default class EventsAgent {
 
-  constructor(mailchimpClient, hull, ship) {
+  constructor(mailchimpClient, hull, ship, instrumentationAgent) {
     this.client = mailchimpClient;
     this.mailchimpClient = mailchimpClient;
+    this.instrumentationAgent = instrumentationAgent;
     this.hull = hull;
     this.listId = _.get(ship, "private_settings.mailchimp_list_id");
     this.listName = _.get(ship, "private_settings.mailchimp_list_name");
@@ -36,16 +37,17 @@ export default class EventsAgent {
       })
       .then(response => {
         const res = response.body;
-        return res.campaigns.filter(c => ["sent", "sending"].indexOf(c.status) !== -1);
+        const trackableCampaigns = res.campaigns.filter(c => ["sent", "sending"].indexOf(c.status) !== -1);
+        this.instrumentationAgent.metricVal("trackable_campaigns", trackableCampaigns);
+        return trackableCampaigns;
       });
   }
 
   /**
-   * Takes a list of campaigns to check, then downloads the emails activities
-   * and then flattens it to return one array for all emails of all campaigns requested.
-   * It also adds `campaign_send_time` parameter from campaign to the email infromation.
+   * Takes a list of campaigns to check, then prepares operation to download
+   * the email activites for these campaigns.
    * @param  {Array} campaigns
-   * @return {Promise}
+   * @return {Array}
    */
   getEmailActivitiesOps(campaigns) {
     this.hull.logger.info("getEmailActivities", campaigns);
@@ -147,13 +149,33 @@ export default class EventsAgent {
   }
 
   /**
+   * @param {Array}
+   * @param {}
+   * @type {Array}
+   */
+  filterEvents(emailActivites, last_track_at = null) {
+    if (last_track_at) {
+      emailActivites = emailActivites.map(e => {
+        e.activity = e.activity.filter(a => {
+          return moment(a.timestamp).utc().isAfter(last_track_at);
+        });
+        return e;
+      });
+    }
+
+    emailActivites = emailActivites.filter(e => !_.isEmpty(e.activity));
+
+    return emailActivites;
+  }
+
+  /**
    * Generate unique id for an event
    * @param  {Object} email
    * @param  {Object} activity
    * @return {String}
    */
   getUniqId({ email, activity }) {
-    const uniqString = [email.email_address, activity.type, activity.timestamp].join();
+    const uniqString = [email.email_address, activity.action, activity.timestamp].join();
     return Buffer.from(uniqString, "utf8").toString("base64");
   }
 

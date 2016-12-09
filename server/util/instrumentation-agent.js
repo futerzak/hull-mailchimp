@@ -33,6 +33,10 @@ export default class InstrumentationAgent {
     }
   }
 
+  setShip(ship) {
+    this.ship = ship;
+  }
+
   startTransaction(jobName, callback) {
     if (this.nr) {
       return this.nr.createBackgroundTransaction(jobName, callback)();
@@ -60,7 +64,7 @@ export default class InstrumentationAgent {
     return console.error(util.inspect(err, { depth: 10 }));
   }
 
-  metricVal(metric = "", value = 1, ship = {}) {
+  metricVal(metric = "", value = 1, ship = this.ship) {
     try {
       if (this.librato) {
         this.librato.measure(`${this.name}.${metric}`, parseFloat(value), Object.assign({}, { source: ship.id }));
@@ -70,7 +74,7 @@ export default class InstrumentationAgent {
     }
   }
 
-  metricInc(metric = "", value = 1, ship = {}) {
+  metricInc(metric = "", value = 1, ship = this.ship) {
     try {
       if (this.librato) {
         this.librato.increment(`${this.name}.${metric}`, parseFloat(value), Object.assign({}, { source: ship.id }));
