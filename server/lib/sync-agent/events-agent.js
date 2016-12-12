@@ -19,6 +19,42 @@ export default class EventsAgent {
     this.listName = _.get(ship, "private_settings.mailchimp_list_name");
   }
 
+  getCampaignsAndAutomationsToTrack() {
+    return Promise.all([
+      this.getTrackableCampaigns(),
+      this.getTrackableAutomationEmails()
+    ])
+    .spread((campaigns, automationEmails) => {
+      return campaigns.concat(automationEmails);
+    });
+  }
+
+  getTrackableAutomationEmails() {
+    return this.client
+      .get("/automations")
+      .query({
+        fields: "automations.id,automations.status,automations.send_time",
+      })
+      .then(({ body }) => {
+        const trackableAutomations = body.automations.filter(a => a.status === "sending");
+        return trackableAutomations;
+      })
+      .then(trackableAutomations => {
+        return Promise.map(trackableAutomations, automation => {
+          return this.client.get(`/automations/${automation.id}/emails`)
+          .query({
+            fields: "emails.id,emails.status,emails.send_time,emails.settings.subject_line",
+          })
+          .then(({ body }) => {
+            // TODO: check send_time
+            const trackableEmails = body.emails.filter(e => e.status === "sending");
+            return trackableEmails;
+          });
+        });
+      })
+      .then(emailsPerAutomation => _.flatten(emailsPerAutomation));
+  }
+
   /**
    * Returns an array of campaigns which can have new events from members.
    * This are sent and being sent campaign not older than a week.
@@ -31,7 +67,7 @@ export default class EventsAgent {
     return this.client
       .get("/campaigns")
       .query({
-        fields: "campaigns.id,campaigns.status,campaigns.title,campaigns.send_time",
+        fields: "campaigns.id,campaigns.status,campaigns.title,campaigns.send_time,campaigns.settings.subject_line",
         list_id: this.listId,
         since_send_time: weekAgo.format()
       })
@@ -207,7 +243,7 @@ export default class EventsAgent {
   getEventProperties(activity, email) {
     const defaultProps = {
       timestamp: activity.timestamp,
-      campaign_name: activity.title || "",
+      campaign_name: activity.title || email.title || "",
       campaign_id: activity.campaign_id,
       list_id: email.list_id,
       list_name: this.listName,

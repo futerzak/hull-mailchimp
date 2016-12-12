@@ -15,7 +15,8 @@ export default function sendUsersJob(req) {
   const usersToAddOrRemove = syncAgent.usersToAddOrRemove(users);
 
   req.hull.client.logger.info("sendUsersJob.ops", {
-    usersToAddToList: usersToAddToList.length
+    usersToAddToList: usersToAddToList.length,
+    usersToAddOrRemove: usersToAddOrRemove.length
   });
 
   return mailchimpAgent.ensureWebhookSubscription(req)

@@ -8,16 +8,17 @@ export default function trackJob(req) {
   const { syncAgent, mailchimpAgent, hullAgent } = req.shipApp;
   const last_track_at = _.get(req.hull.ship, "private_settings.last_track_at");
 
-  return syncAgent.eventsAgent.getTrackableCampaigns()
-    .then(c => syncAgent.eventsAgent.getEmailActivitiesOps(c))
-    .then(operations => {
+  return syncAgent.eventsAgent.getCampaignsAndAutomationsToTrack()
+    .then(campaigns => {
+      const operations = syncAgent.eventsAgent.getEmailActivitiesOps(campaigns);
       return mailchimpAgent.batchAgent.create({
         operations,
         jobs: ["trackEmailActivites"],
         chunkSize: 200,
         extractField: "emails",
         additionalData: {
-          last_track_at
+          last_track_at,
+          campaigns
         }
       });
     })
