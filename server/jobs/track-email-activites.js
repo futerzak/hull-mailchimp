@@ -9,7 +9,7 @@ export default function trackEmailActivites(req) {
 
   emailActivites = emailActivites.map(emailActivity => {
     const campaign = _.find(campaigns, { id: emailActivity.campaign_id });
-    emailActivity.title = _.get(campaign, "settings.subject_line");
+    emailActivity.title = _.get(campaign, "settings.title");
     return emailActivity;
   });
 

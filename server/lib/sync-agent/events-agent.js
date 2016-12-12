@@ -43,7 +43,7 @@ export default class EventsAgent {
         return Promise.map(trackableAutomations, automation => {
           return this.client.get(`/automations/${automation.id}/emails`)
           .query({
-            fields: "emails.id,emails.status,emails.send_time,emails.settings.subject_line",
+            fields: "emails.id,emails.status,emails.send_time,emails.settings.title",
           })
           .then(({ body }) => {
             // TODO: check send_time
@@ -67,7 +67,7 @@ export default class EventsAgent {
     return this.client
       .get("/campaigns")
       .query({
-        fields: "campaigns.id,campaigns.status,campaigns.title,campaigns.send_time,campaigns.settings.subject_line",
+        fields: "campaigns.id,campaigns.status,campaigns.title,campaigns.send_time,campaigns.settings.title",
         list_id: this.listId,
         since_send_time: weekAgo.format()
       })
