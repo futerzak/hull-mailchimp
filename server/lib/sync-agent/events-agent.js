@@ -175,8 +175,7 @@ export default class EventsAgent {
    * @return {String}
    */
   getUniqId({ email, activity }) {
-    const uniqString = [email.email_address, activity.action, activity.timestamp].join();
-    return Buffer.from(uniqString, "utf8").toString("base64");
+    return [email.email_id, activity.action, activity.timestamp].join("-");
   }
 
   /**
