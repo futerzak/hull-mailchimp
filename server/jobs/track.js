@@ -2,7 +2,8 @@ import moment from "moment";
 import _ from "lodash";
 
 /**
- * SyncIn : import all the list members as hull users
+ * Track: check all "trackable" campaigns and automation emails,
+ * then download events for them.
  */
 export default function trackJob(req) {
   const { syncAgent, mailchimpAgent, hullAgent } = req.shipApp;
