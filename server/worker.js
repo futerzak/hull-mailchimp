@@ -1,33 +1,21 @@
-import Hull from "hull";
+import WorkerApp from "./util/app/worker";
+import ExitHandler from "./util/handler/exit";
+import tokenMiddleware from "./util/middleware/token";
 
-import WorkerRouter from "./router/worker-router";
-import WorkerApp from "./app/worker-app";
-import { controllers, hostSecret, queueAdapter, instrumentationAgent } from "./bootstrap";
+import * as bootstrap from "./bootstrap";
 
-/**
- * We need shared instance of Hull client middleware
- * because in its factory there is a caching object
- * which we need to share between PublicApp and WorkerApp.
- * Right now the refresh of ship settings is done in oauth client.
- * Not on the ship_update event, since the notifHandler has got separate
- * instance.
- * @type {Object}
- */
-const hullMiddleware = Hull.Middleware({
-  hostSecret,
-  useCache: true,
-  fetchShip: true
-});
 
-const worker = new WorkerApp({
-  queueAdapter,
-  hostSecret,
-  hullMiddleware,
-  instrumentationAgent
-});
+const { hullMiddleware, queueAdapter, appMiddleware } = bootstrap;
 
-console.warn("Starting the worker");
+const workerApp = new WorkerApp(bootstrap);
 
-worker
-  .use(WorkerRouter(controllers))
-  .process();
+workerApp
+  .use(tokenMiddleware)
+  .use(hullMiddleware)
+  .use(appMiddleware);
+
+workerApp.process();
+
+bootstrap.Hull.logger.info("workerApp.process");
+
+ExitHandler(queueAdapter.exit.bind(queueAdapter));

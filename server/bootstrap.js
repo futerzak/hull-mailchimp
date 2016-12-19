@@ -1,14 +1,23 @@
 /**
  * Main project dependencies
  */
+import CacheManager from "cache-manager";
 import kue from "kue";
+import Hull from "hull";
 
+import AppMiddleware from "./lib/middlewares/app";
 import KueAdapter from "./util/queue/adapter/kue";
 import InstrumentationAgent from "./util/instrumentation-agent";
-import BatchSyncHandler from "./util/batch-sync-handler";
-export controllers from "./controller";
 
-export const hostSecret = process.env.SECRET || "shhuuut";
+export * as jobs from "./jobs";
+export * as actions from "./actions";
+export * as notifHandlers from "./notif-handlers";
+
+export const shipConfig = {
+  hostSecret: process.env.SECRET || "1234",
+  clientID: process.env.MAILCHIMP_CLIENT_ID,
+  clientSecret: process.env.MAILCHIMP_CLIENT_SECRET
+};
 
 export const instrumentationAgent = new InstrumentationAgent();
 
@@ -17,19 +26,13 @@ export const queueAdapter = new KueAdapter(kue.createQueue({
   redis: process.env.REDIS_URL
 }));
 
-function exitNow() {
-  console.warn("Exiting now !");
-  process.exit(0);
-}
+export Hull from "hull";
+export const cacheManager = CacheManager.caching({
+  store: "memory",
+  max: process.env.SHIP_CACHE_MAX || 100,
+  ttl: process.env.SHIP_CACHE_TTL || 60
+});
 
-function handleExit() {
-  console.log("Exiting... waiting 30 seconds workers to flush");
-  setTimeout(exitNow, 30000);
-  Promise.all([
-    BatchSyncHandler.exit(),
-    queueAdapter.exit()
-  ]).then(exitNow);
-}
-
-process.on("SIGINT", handleExit);
-process.on("SIGTERM", handleExit);
+export const shipCache = new Hull.ShipCache(cacheManager, process.env.SHIP_CACHE_PREFIX || "hull-mailchimp-cache");
+export const hullMiddleware = new Hull.Middleware({ hostSecret: shipConfig.hostSecret, shipCache });
+export const appMiddleware = new AppMiddleware({ queueAdapter, shipCache, instrumentationAgent });

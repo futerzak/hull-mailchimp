@@ -77,12 +77,16 @@ export default class MailchimpClient {
       .pipe(zlib.createGunzip())
       .pipe(extract);
 
+    /**
+     * content of every file is
+     * [
+     *  {"status_code":200,"operation_id":"id","response":"encoded_json"},
+     *  {"status_code":200,"operation_id":"id","response":"encoded_json"}
+     * ]
+     */
     return decoder
-      .pipe(es.map(function write(data, callback) {
-        if (_.isEmpty(data)) {
-          return callback();
-        }
-        return data.map(r => callback(null, r));
+      .pipe(es.through(function write(data) {
+        return data.map(r => this.emit("data", r));
       }));
   }
 
