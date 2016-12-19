@@ -8,7 +8,7 @@
     "build:server": "babel server -d build",
     "start": "nf start",
     "start:dev": "nf -j Procfile.dev start",
-    "test": "NODE_ENV=test mocha mocha-babel.js -R spec ./tests",
+    "test": "NODE_ENV=test mocha --require babel-register -R spec ./tests",
     "test:lint": "eslint server",
     "clean": "rm -rf build",
     "postinstall": "npm run build"
