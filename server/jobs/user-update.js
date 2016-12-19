@@ -4,7 +4,7 @@ import _ from "lodash";
  * Handles events of user
  */
 export default function userUpdateHandlerJob(req) {
-  const { hullAgent, segmentsMappingAgent, queueAgent, syncAgent } = req.shipApp;
+  const { hullAgent, queueAgent, syncAgent } = req.shipApp;
 
   if (!syncAgent.isConfigured()) {
     req.hull.client.logger.error("ship not configured");
@@ -25,7 +25,7 @@ export default function userUpdateHandlerJob(req) {
     } else {
       if (syncAgent.userAdded(user)) {
         user.segment_ids = [];
-        user.remove_segment_ids = segmentsMappingAgent.getSegmentIds();
+        user.remove_segment_ids = syncAgent.segmentsMappingAgent.getSegmentIds();
       } else {
         return false;
       }
