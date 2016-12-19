@@ -45,7 +45,7 @@ export default class BatchSyncHandler {
     } else {
       this.flushLater();
     }
-    return Promise.resolve();
+    return Promise.resolve("ok");
   }
 
   flush() {
