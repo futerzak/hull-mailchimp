@@ -61,26 +61,45 @@ export default class MailchimpClient {
 
     extract.on("entry", (header, stream, callback) => {
       if (header.name.match(/\.json/)) {
-        stream.pipe(decoder);
+        stream.pipe(decoder, { end: false });
       }
 
-      stream.on("end", () => {
-        callback(); // ready for next entry
-      });
+      stream.on("end", () => callback()); // ready for next entry
+      stream.on("error", () => callback()); // ready for next entry
 
       stream.resume();
     });
+
+    extract.on("finish", () => decoder.end());
+    extract.on("error", () => decoder.end());
 
     request(response_body_url)
       .pipe(zlib.createGunzip())
       .pipe(extract);
 
+    /**
+     * content of every file is
+     * [
+     *  {"status_code":200,"operation_id":"id","response":"encoded_json"},
+     *  {"status_code":200,"operation_id":"id","response":"encoded_json"}
+     * ]
+     */
     return decoder
       .pipe(es.through(function write(data) {
-        data.map(r => {
-          return this.emit("data", r);
-        });
+        return data.map(r => this.emit("data", r));
       }));
+  }
+
+  handleError(err) {
+    const filteredError = new Error(err.message, err.fileName, err.lineNumber);
+    filteredError.extra = {
+      reqUrl: _.get(err, "response.request.url"),
+      reqMethod: _.get(err, "response.request.method"),
+      reqData: _.get(err, "response.request._data"),
+      body: _.get(err, "response.body"),
+      statusCode: _.get(err, "response.statusCode"),
+    };
+    return filteredError;
   }
 
 }

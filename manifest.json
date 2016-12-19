@@ -77,7 +77,7 @@
   ],
   "schedules": [
     {
-      "url": "/requestTrack",
+      "url": "/track",
       "type": "cron",
       "value": "7 */6 * * *"
     }

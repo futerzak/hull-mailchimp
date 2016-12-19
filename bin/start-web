@@ -1,0 +1,13 @@
+#!/usr/bin/env node
+
+if (process.env.NEW_RELIC_LICENSE_KEY) {
+  console.warn("Starting newrelic agent with key: ", process.env.NEW_RELIC_LICENSE_KEY);
+  require("newrelic"); // eslint-disable-line global-require
+}
+
+const Web = require("../build/web").Web;
+const PORT = process.env.PORT || 8082;
+console.warn(`Starting on PORT ${PORT}`);
+Web({
+  hostSecret: process.env.SECRET || "shhuuut"
+}).listen(PORT);
