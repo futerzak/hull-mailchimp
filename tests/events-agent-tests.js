@@ -3,26 +3,11 @@ import assert from "assert";
 import sinon from "sinon";
 import Promise from "bluebird";
 import moment from "moment";
-import Hull from "hull";
+import { hullAgent, mailchimpClient, instrumentationAgent, hullClient } from "./support";
 
 import EventsAgent from "../server/lib/sync-agent/events-agent";
 
-const instrumentationAgent = {
-  metricVal: function() {},
-}
 
-const mailchimpClient = {
-  get: function() {},
-  post: function() {},
-  query: function() {},
-};
-
-const hullClient = {
-  logger: {
-    info: function() {}
-  }
-};
-const hullClientMock = sinon.mock(hullClient);
 
 describe("EventsAgent", function EventsAgentTest() {
   const private_settings = {
