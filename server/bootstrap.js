@@ -19,7 +19,7 @@ export const shipConfig = {
   clientSecret: process.env.MAILCHIMP_CLIENT_SECRET
 };
 
-export const instrumentationAgent = new InstrumentationAgent();
+export const instrumentationAgent = new InstrumentationAgent("mailchimp");
 
 export const queueAdapter = new KueAdapter(kue.createQueue({
   prefix: process.env.KUE_PREFIX || "hull-mailchimp",
