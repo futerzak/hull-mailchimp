@@ -69,11 +69,16 @@ export default class MailchimpBatchAgent {
       .then((response) => {
         const batchInfo = response.body;
         this.hullClient.logger.info("mailchimpBatchAgent.handleBatch", _.omit(batchInfo, "_links"));
-        if (batchInfo.status !== "finished" && attempt < 6000) {
-          options.attempt++;
-          return this.queueAgent.create("handleMailchimpBatch", options, {
-            delay: process.env.MAILCHIMP_BATCH_HANDLER_INTERVAL || 10000
-          });
+        if (batchInfo.status !== "finished") {
+          if (attempt < 6000) {
+            options.attempt++;
+            return this.queueAgent.create("handleMailchimpBatch", options, {
+              delay: process.env.MAILCHIMP_BATCH_HANDLER_INTERVAL || 10000
+            });
+          }
+
+          this.hullClient.logger.error("mailchimpBatchAgent.batch_job_hanged", _.omit(batchInfo, "_links"));
+          return this.mailchimpClient.delete(`/batches/${batchId}`);
         }
 
         if (batchInfo.total_operations === 0
@@ -112,7 +117,8 @@ export default class MailchimpBatchAgent {
               return Promise.reject(e);
             }
           }))
-          .wait();
+          .wait()
+          .then(() => this.mailchimpClient.delete(`/batches/${batchId}`));
       });
   }
 }
