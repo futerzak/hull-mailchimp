@@ -10,13 +10,14 @@ import MailchimpBatchAgent from "./batch-agent";
  */
 export default class MailchimpAgent {
 
-  constructor(mailchimpClient, ship, hullClient, queueAgent) {
+  constructor(mailchimpClient, ship, hullClient, queueAgent, instrumentationAgent) {
     this.mailchimpClient = mailchimpClient;
     this.hullClient = hullClient;
     this.ship = ship;
     this.listId = _.get(ship, "private_settings.mailchimp_list_id");
+    this.instrumentationAgent = instrumentationAgent;
 
-    this.batchAgent = new MailchimpBatchAgent(hullClient, mailchimpClient, queueAgent);
+    this.batchAgent = new MailchimpBatchAgent(hullClient, mailchimpClient, queueAgent, instrumentationAgent);
   }
 
   getEmailHash(email) {
