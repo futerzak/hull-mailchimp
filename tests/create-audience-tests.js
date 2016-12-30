@@ -1,5 +1,5 @@
 /* global describe, it */
-const assert = require("assert");
+import assert from "assert";
 import Promise from "bluebird";
 import sinon from "sinon";
 
@@ -7,7 +7,6 @@ import MailchimpAgent from "../server/lib/mailchimp-agent";
 
 
 describe("MailchimpAgent", () => {
-  return;
   describe("createAudience", () => {
     const hullStub = {
       logger: {
@@ -19,7 +18,7 @@ describe("MailchimpAgent", () => {
       }
     };
 
-    it(`should return audience when there is an exisiting static segment in mailchimp`, () => {
+    it.skip(`should return audience when there is an exisiting static segment in mailchimp`, () => {
 
       class MailchimpClientStub {
         batch() {
@@ -42,7 +41,7 @@ describe("MailchimpAgent", () => {
         });
     });
 
-    it(`should create and return an audience when there is no an exisiting static segment`, () => {
+    it.skip(`should create and return an audience when there is no an exisiting static segment`, () => {
 
       class MailchimpClientStub {}
 

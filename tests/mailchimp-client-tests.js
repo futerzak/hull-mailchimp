@@ -5,9 +5,8 @@ import sinon from "sinon";
 import proxyquire from "proxyquire";
 
 describe("MailchimpClient", () => {
-  return;
   describe("batch", () => {
-    it(`should return an array in microbatch in successfull query`, () => {
+    it.skip(`should return an array in microbatch in successfull query`, () => {
       class MailchimpStub {
         request(params) {
           return new Promise.resolve({ res: "test" });
@@ -23,7 +22,7 @@ describe("MailchimpClient", () => {
         });
     });
 
-    it(`should return an error in microbatch in rejected query`, () => {
+    it.skip(`should return an error in microbatch in rejected query`, () => {
 
       class MailchimpStub {
         request(params) {
