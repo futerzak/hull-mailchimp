@@ -3,7 +3,7 @@ import _ from "lodash";
 import ps from "promise-streams";
 import BatchStream from "batch-stream";
 import es from "event-stream";
-// import omitDeep from "omit-deep-lodash";
+import moment from "moment";
 
 
 /**
@@ -13,10 +13,11 @@ import es from "event-stream";
  */
 export default class MailchimpBatchAgent {
 
-  constructor(hullClient, mailchimpClient, queueAgent) {
+  constructor(hullClient, mailchimpClient, queueAgent, instrumentationAgent) {
     this.hullClient = hullClient;
     this.mailchimpClient = mailchimpClient;
     this.queueAgent = queueAgent;
+    this.instrumentationAgent = instrumentationAgent;
   }
 
   /**
@@ -36,7 +37,7 @@ export default class MailchimpBatchAgent {
     if (_.isEmpty(operations)) {
       return Promise.resolve([]);
     }
-
+    this.instrumentationAgent.metricInc("batch_job.count");
     return this.mailchimpClient
       .post("/batches")
       .send({ operations })
@@ -69,12 +70,23 @@ export default class MailchimpBatchAgent {
       .then((response) => {
         const batchInfo = response.body;
         this.hullClient.logger.info("mailchimpBatchAgent.handleBatch", _.omit(batchInfo, "_links"));
-        if (batchInfo.status !== "finished" && attempt < 6000) {
-          options.attempt++;
-          return this.queueAgent.create("handleMailchimpBatch", options, {
-            delay: process.env.MAILCHIMP_BATCH_HANDLER_INTERVAL || 10000
-          });
+        if (batchInfo.status !== "finished") {
+          if (attempt < 6000) {
+            options.attempt++;
+            return this.queueAgent.create("handleMailchimpBatch", options, {
+              delay: process.env.MAILCHIMP_BATCH_HANDLER_INTERVAL || 10000
+            });
+          }
+          this.instrumentationAgent.metricInc("batch_job.hanged");
+          this.hullClient.logger.error("mailchimpBatchAgent.batch_job_hanged", _.omit(batchInfo, "_links"));
+          return this.mailchimpClient.delete(`/batches/${batchId}`);
         }
+
+        this.instrumentationAgent.metricVal("batch_job.attempts", attempt);
+        this.instrumentationAgent.metricVal(
+          "batch_job.completion_time",
+          moment(batchInfo.completed_at).diff(batchInfo.submitted_at, "seconds")
+        );
 
         if (batchInfo.total_operations === 0
           || _.isEmpty(batchInfo.response_body_url)) {
@@ -112,7 +124,8 @@ export default class MailchimpBatchAgent {
               return Promise.reject(e);
             }
           }))
-          .wait();
+          .wait()
+          .then(() => this.mailchimpClient.delete(`/batches/${batchId}`));
       });
   }
 }

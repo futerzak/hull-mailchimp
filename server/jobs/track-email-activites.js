@@ -13,6 +13,6 @@ export default function trackEmailActivites(req) {
     return emailActivity;
   });
 
-  instrumentationAgent.metricInc("email_activites_for_user", emailActivites.length);
+  instrumentationAgent.metricInc("track.email_activites_for_campaign", emailActivites.length);
   return syncAgent.eventsAgent.trackEvents(emailActivites);
 }
