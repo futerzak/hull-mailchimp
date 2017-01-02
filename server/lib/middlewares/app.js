@@ -19,7 +19,7 @@ export default function ({ queueAdapter, shipCache, instrumentationAgent }) {
     const mailchimpClient = new MailchimpClient(req.hull.ship);
 
     const queueAgent = new QueueAgent(queueAdapter, req);
-    const mailchimpAgent = new MailchimpAgent(mailchimpClient, req.hull.ship, req.hull.client, queueAgent);
+    const mailchimpAgent = new MailchimpAgent(mailchimpClient, req.hull.ship, req.hull.client, queueAgent, instrumentationAgent);
     const hullAgent = new HullAgent(req.hull.ship, req.hull.client, shipCache, req);
 
     const syncAgent = new SyncAgent(mailchimpClient, hullAgent, req.hull.ship, instrumentationAgent);

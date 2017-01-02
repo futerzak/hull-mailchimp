@@ -8,7 +8,7 @@ export default function trackUsers(req) {
   return syncAgent.eventsAgent.getMemberActivities(users)
     .then(emailActivites => {
       emailActivites = syncAgent.eventsAgent.filterEvents(emailActivites, last_track_at);
-      instrumentationAgent.metricInc("email_activites_for_campaign", emailActivites.length);
+      instrumentationAgent.metricInc("track.email_activites_for_user", emailActivites.length);
       return syncAgent.eventsAgent.trackEvents(emailActivites);
     });
 }
