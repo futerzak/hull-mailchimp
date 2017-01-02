@@ -74,7 +74,7 @@ export default class EventsAgent {
       .then(response => {
         const res = response.body;
         const trackableCampaigns = res.campaigns.filter(c => ["sent", "sending"].indexOf(c.status) !== -1);
-        this.instrumentationAgent.metricVal("trackable_campaigns", trackableCampaigns);
+        this.instrumentationAgent.metricVal("trackable_campaigns", trackableCampaigns.length);
         return trackableCampaigns;
       });
   }
