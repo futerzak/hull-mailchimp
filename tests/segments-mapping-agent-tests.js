@@ -71,7 +71,8 @@ describe.only("SegmentsMappingAgent", () => {
     });
 
     describe("createSegment", () => {
-        it("should return Promise", () => {
+      describe("create new segment", () => {
+        it("should return Promise when create new segment", () => {
 
             class MailchimpClientStub {
               get(url){
@@ -112,13 +113,109 @@ describe.only("SegmentsMappingAgent", () => {
             // return segmentsAgent.createSegment(segment).then(res => {
             //   assert.deepEqual(undefined, res);
             // });
+          });
+        });
+        describe("try to create existing segment", () => {
+          it("should return Promise", () => {
+            assert(true, true);
+          });
         });
     });
 
-    describe.skip("deleteSegment", () => {
-        it("should return Promise", () => {
-            assert(true, true);
-        });
+    describe("deleteSegment", () => {
+      it("should return Promise when segment not exists", () => {
+        class MailchimpClientStub {
+          get(url){
+            const payload = {
+              body:{
+                segments:{}
+              }
+            };
+            return {query: ({})=>{return Promise.resolve(payload)}};
+          }
+
+          post(url){
+            const payload = {body:{id:"1"}};
+            return {
+              send: () => {
+                return Promise.resolve(payload)
+              }
+            }
+          }
+        }
+        const mailchimpClientStub = new MailchimpClientStub();
+
+        const ship = {
+          private_settings:{
+            mailchimp_list_id:{
+              "1":"1"
+            }
+          }
+        };
+
+        const segmentsAgent = new SegmentsAgent(mailchimpClientStub, {}, ship);
+        const segment = {
+            name: "testSegment",
+            id: "1"
+        }
+
+        assert(true,segmentsAgent.deleteSegment(segment) instanceof Promise);
+        // return segmentsAgent.deleteSegment(segment).then(res => {
+        //   assert(true, res);
+        // });
+      });
+      it("should return Promise when segment exists", () => {
+        class MailchimpClientStub {
+          get(url){
+            const payload = {
+              body:{
+                segments:{}
+              }
+            };
+            return {
+              query: ({}) => {return Promise.resolve(payload)}
+            };
+          }
+
+          post(url){
+            const payload = {body:{id:"1"}};
+            return {
+              send: () => {
+                return Promise.resolve(payload)
+              }
+            }
+          }
+
+          delete(url){
+            const payload = {}
+
+            return Promise.resolve({});
+          }
+        }
+        const mailchimpClientStub = new MailchimpClientStub();
+
+        const ship = {
+          private_settings:{
+            mailchimp_list_id:{
+              "1":"1"
+            },
+            segment_mapping:{
+              "1":"testSegment"
+            }
+          }
+        };
+
+        const segmentsAgent = new SegmentsAgent(mailchimpClientStub, {}, ship);
+        const segment = {
+            name: "testSegment",
+            id: "1"
+        }
+
+        assert(true, segmentsAgent.deleteSegment(segment) instanceof Promise);
+        // return segmentsAgent.deleteSegment(segment).then(res => {
+        //   assert(true, res);
+        // });
+      });
     });
 
     describe("getAudienceId", () => {
